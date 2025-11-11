@@ -1,0 +1,21 @@
+{
+  "name": "昭安宮農民曆",
+  "short_name": "農民曆",
+  "start_url": "./calender.html",
+  "display": "standalone",
+  "background_color": "#fff5f5",
+  "theme_color": "#c62828",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
