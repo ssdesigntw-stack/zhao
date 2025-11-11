@@ -1,7 +1,7 @@
 {
   "name": "昭安宮農民曆",
-  "short_name": "農民曆",
-  "start_url": "./calender.html",
+  "short_name": "昭安宮",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#fff5f5",
   "theme_color": "#c62828",
@@ -18,4 +18,5 @@
       "type": "image/jpeg"
     }
   ]
+
 }
