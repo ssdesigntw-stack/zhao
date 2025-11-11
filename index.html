@@ -42,9 +42,12 @@
     }
 
     canvas {
-      width: 98%;
+      display: block;
+      max-width: 98%;
+      height: auto; /* ✅ 自動依比例縮放高度 */
+      margin: 0 auto;
       border-radius: 8px;
-      border: 2px solid #d4af37; /* ✨ 細金邊 */
+      border: 2px solid #d4af37;
       box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
       touch-action: pinch-zoom;
     }
@@ -221,3 +224,4 @@
   </script>
 </body>
 </html>
+
