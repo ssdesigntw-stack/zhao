@@ -43,14 +43,34 @@
       background: #e53935; /* 亮紅 */
     }
     .month-bar {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      background: #ffebee; /* 淡粉底色 */
-      padding: 8px;
-      border-radius: 8px;
-      box-shadow: 0 0 6px rgba(0,0,0,0.05);
-    }
+	  display: flex;
+	  justify-content: flex-start; /* 按鈕從左排起 */
+	  background: #ffebee;
+	  padding: 8px;
+	  border-radius: 8px;
+	  box-shadow: 0 0 6px rgba(0,0,0,0.05);
+	  overflow-x: auto;         /* ✨ 允許橫向滑動 */
+	  white-space: nowrap;      /* ✨ 禁止自動換行 */
+	  scroll-behavior: smooth;  /* ✨ 滑動更順暢 */
+	}
+
+	/* ✨ 美化 scrollbar（可選） */
+	.month-bar::-webkit-scrollbar {
+	  height: 6px;
+	}
+	.month-bar::-webkit-scrollbar-thumb {
+	  background-color: #d4af37;
+	  border-radius: 3px;
+	}
+	.month-bar::-webkit-scrollbar-track {
+	  background-color: #fff5f5;
+	}
+
+	/* 按鈕間距微調，避免緊貼邊界 */
+	.month-bar button {
+	  flex: 0 0 auto; /* ✨ 保持固定寬度，不被壓縮 */
+	  margin: 3px 6px;
+	}
     #page-info {
       color: #b71c1c;
       font-weight: 600;
