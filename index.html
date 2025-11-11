@@ -2,42 +2,57 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- ✅ 允許縮放，但不允許頁面滾動 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=3, user-scalable=yes">
 
   <title>昭安宮農民曆</title>
 
   <!-- ✅ iOS 全螢幕 App 模式設定 -->
-  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="昭安宮農民曆">
 
   <!-- ✅ 主畫面圖示 -->
   <link rel="apple-touch-icon" href="logo.jpg">
   <link rel="manifest" href="manifest.json">
-  
+
   <style>
-    body {
+    /* ✅ 防止頁面被拉動，但允許雙指縮放 */
+    html, body {
       margin: 0;
-      font-family: "Noto Sans TC", sans-serif;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;               /* 禁止滾動 */
+      touch-action: pinch-zoom;       /* 允許雙指縮放 */
+      -webkit-touch-callout: none;    /* 長按不彈出選單 */
+      -webkit-user-select: none;      /* 禁止選文字 */
       background: #fff5f5;
+      font-family: "Noto Sans TC", sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
+
     #pdf-viewer {
       width: 100%;
       max-width: 900px;
       text-align: center;
+      overflow: hidden;
+      touch-action: pinch-zoom; /* 保持可縮放 */
     }
+
     canvas {
       width: 98%;
       border-radius: 8px;
       border: 2px solid #d4af37; /* ✨ 細金邊 */
       box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
+      touch-action: pinch-zoom;
     }
+
     .controls, .month-bar {
       margin: 10px 0;
     }
+
     button {
       padding: 8px 14px;
       font-size: 15px;
@@ -49,6 +64,7 @@
       background: #c62828;
       transition: all 0.25s ease;
     }
+
     button:hover {
       background: #e53935;
     }
@@ -64,6 +80,7 @@
       overflow-x: auto;
       white-space: nowrap;
       scroll-behavior: smooth;
+      touch-action: pan-x pinch-zoom; /* 允許左右滑動與縮放 */
     }
 
     /* ✅ 美化 scrollbar（可選） */
@@ -204,5 +221,3 @@
   </script>
 </body>
 </html>
-
-
