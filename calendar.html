@@ -94,30 +94,45 @@
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     // 每個月份對應的頁碼
-    const monthPages = {
+    const contentPages = {
       1: 1,
-      2: 6,
-      3: 11,
-      4: 16,
-      5: 21,
-      6: 26,
-      7: 31,
-      8: 36,
-      9: 41,
-      10: 46,
-      11: 51,
-      12: 56
+      2: 12,
+      3: 13,
+      4: 14,
+      5: 18,
+      6: 20,
+      7: 28,
+      8: 34,
+      9: 38,
+      10: 44,
+      11: 48,
+      12: 54
+    };
+	
+	const btnNames = {
+      1: '昭安宮簡介',
+      2: '點光明燈',
+      3: '慶典日期',
+      4: '交接典禮',
+      5: '太歲丙午年',
+      6: '2026/1-3月',
+      7: '2026/4-6月',
+      8: '2026/7-9月',
+      9: '2026/10-12月',
+      10: '2027/1-2月',
+      11: '生肖運勢',
+      12: '時辰吉日'
     };
 
     // 產生月份按鈕
     const monthBar = document.getElementById('month-bar');
     for (let i = 1; i <= 12; i++) {
       const btn = document.createElement('button');
-      btn.textContent = `${i} 月`;
+      btn.textContent = btnNames[i];
       btn.dataset.month = i;
       btn.addEventListener('click', () => {
         if (pdfDoc) {
-          pageNum = monthPages[i];
+          pageNum = contentPages[i];
           renderPage(pageNum);
           highlightMonth(i);
         }
