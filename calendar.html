@@ -4,135 +4,143 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>昭安宮農民曆</title>
-  
   <link rel="apple-touch-icon" href="logo.jpg">
-  <!-- PDF.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- StPageFlip -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/page-flip/dist/css/page-flip.css" />
-  <script src="https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.min.js"></script>
-  
   <style>
     body {
-      background: #fff5f5;
+      margin: 0;
       font-family: "Noto Sans TC", sans-serif;
+      background: #fff5f5;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
-
-    #container {
-      width: 900px;
-      height: 600px;
-      margin-top: 20px;
-      border: 2px solid #d4af37; /* ✨ 金邊 */
-      border-radius: 8px;
-      box-shadow: 0 0 15px rgba(212,175,55,0.3);
-      overflow: hidden;
+    #pdf-viewer {
+      width: 100%;
+      max-width: 900px;
+      text-align: center;
     }
-
     canvas {
       width: 100%;
-      display: block;
       border-radius: 8px;
+      box-shadow: 0 0 10px rgba(128, 0, 0, 0.2);
     }
-
+    .controls, .month-bar {
+      margin: 10px 0;
+    }
     button {
       padding: 8px 14px;
-      margin: 6px;
       font-size: 15px;
-      border-radius: 6px;
-      border: 1.5px solid #d4af37;
-      background: #c62828;
-      color: #fff;
+      margin: 3px;
       cursor: pointer;
-      transition: all 0.25s ease;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      background: #c62828; /* 深紅 */
+      transition: 0.25s;
     }
-
     button:hover {
-      background: #e53935;
+      background: #e53935; /* 亮紅 */
     }
-
     .month-bar {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      margin-top: 10px;
-      background: #ffebee;
+      background: #ffebee; /* 淡粉底色 */
       padding: 8px;
       border-radius: 8px;
       box-shadow: 0 0 6px rgba(0,0,0,0.05);
     }
-
-    button.active {
-      background: linear-gradient(145deg, #ffeb3b, #fdd835);
-      color: #8b0000;
-      font-weight: 700;
-      box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+    #page-info {
+      color: #b71c1c;
+      font-weight: 600;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
-  <div class="month-bar" id="month-bar"></div>
+  <div id="pdf-viewer">
+    <div class="month-bar" id="month-bar">
+      <!-- 自動產生 1–12 月按鈕 -->
+    </div>
 
-  <div>
-    <button id="prev">⬅️ 上一頁</button>
-    <button id="next">➡️ 下一頁</button>
+    <div class="controls">
+      <button id="prev">⬅️ 上一頁</button>
+      <span id="page-info"></span>
+      <button id="next">➡️ 下一頁</button>
+    </div>
+
+    <canvas id="pdf-canvas"></canvas>
   </div>
 
-  <div id="container"></div>
-
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
-    const url = "zhao.pdf"; // 你的 PDF 檔
-    const monthPages = { 1: 1, 2: 6, 3: 11, 4: 16, 5: 21, 6: 26, 7: 31, 8: 36, 9: 41, 10: 46, 11: 51, 12: 56 };
+    const url = 'zhao.pdf'; // PDF 檔案路徑
+    let pdfDoc = null, pageNum = 1;
+    const canvas = document.getElementById('pdf-canvas');
+    const ctx = canvas.getContext('2d');
 
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    const flipContainer = document.getElementById("container");
-    const flipBook = new St.PageFlip(flipContainer, {
-      width: 900,
-      height: 600,
-      size: "stretch",
-      maxShadowOpacity: 0.3,
-      showCover: false,
-      mobileScrollSupport: true,
-    });
+    // 每個月份對應的頁碼
+    const monthPages = {
+      1: 1,
+      2: 6,
+      3: 11,
+      4: 16,
+      5: 21,
+      6: 26,
+      7: 31,
+      8: 36,
+      9: 41,
+      10: 46,
+      11: 51,
+      12: 56
+    };
 
-    pdfjsLib.getDocument(url).promise.then(pdf => {
-      const total = pdf.numPages;
-      let loaded = 0;
-      for (let i = 1; i <= total; i++) {
-        pdf.getPage(i).then(page => {
-          const viewport = page.getViewport({ scale: 1.5 });
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
-          page.render({ canvasContext: ctx, viewport: viewport }).promise.then(() => {
-            flipBook.loadFromHTML([canvas]); // 加入翻頁效果
-          });
-        });
-      }
-    });
-
-    // 上下頁控制
-    document.getElementById("prev").addEventListener("click", () => flipBook.turnToPrevPage());
-    document.getElementById("next").addEventListener("click", () => flipBook.turnToNextPage());
-
-    // 月份選單
-    const monthBar = document.getElementById("month-bar");
+    // 產生月份按鈕
+    const monthBar = document.getElementById('month-bar');
     for (let i = 1; i <= 12; i++) {
-      const btn = document.createElement("button");
+      const btn = document.createElement('button');
       btn.textContent = `${i} 月`;
-      btn.dataset.month = i;
-      btn.addEventListener("click", () => {
-        flipBook.turnToPage(monthPages[i] || 1);
-        document.querySelectorAll(".month-bar button").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
+      btn.addEventListener('click', () => {
+        if (pdfDoc) {
+          pageNum = monthPages[i];
+          renderPage(pageNum);
+        }
       });
       monthBar.appendChild(btn);
     }
+
+    // 載入 PDF
+    pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+      pdfDoc = pdfDoc_;
+      renderPage(pageNum);
+    });
+
+    function renderPage(num) {
+      pdfDoc.getPage(num).then(function(page) {
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        page.render({ canvasContext: ctx, viewport: viewport });
+        document.getElementById('page-info').textContent =
+          `第 ${num} / ${pdfDoc.numPages} 頁`;
+      });
+    }
+
+    document.getElementById('prev').addEventListener('click', function() {
+      if (pageNum <= 1) return;
+      pageNum--;
+      renderPage(pageNum);
+    });
+
+    document.getElementById('next').addEventListener('click', function() {
+      if (pageNum >= pdfDoc.numPages) return;
+      pageNum++;
+      renderPage(pageNum);
+    });
   </script>
 </body>
 </html>
