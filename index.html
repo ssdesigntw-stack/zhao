@@ -2,106 +2,114 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
-  <!-- ✅ 允許縮放，但不允許頁面滾動 -->
+  <!-- 允許縮放 (雙指) 並限制最大縮放 -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=3, user-scalable=yes">
 
   <title>昭安宮農民曆</title>
 
-  <!-- ✅ iOS 全螢幕 App 模式設定 -->
-  <meta name="mobile-web-app-capable" content="yes">
+  <!-- iOS 全螢幕 App 模式 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="昭安宮農民曆">
 
-  <!-- ✅ 主畫面圖示 -->
   <link rel="apple-touch-icon" href="logo.jpg">
   <link rel="manifest" href="manifest.json">
 
   <style>
-    /* ✅ 防止頁面被拉動，但允許雙指縮放 */
+    /* --- 基本布局 --- */
+    :root {
+      --page-bg: #fff5f5;
+      --accent: #c62828;
+      --gold: #d4af37;
+    }
+
     html, body {
+      height: 100%;
       margin: 0;
       padding: 0;
-      height: 100%;
-      overflow: hidden;               /* 禁止滾動 */
-      touch-action: pinch-zoom;       /* 允許雙指縮放 */
-      -webkit-touch-callout: none;    /* 長按不彈出選單 */
-      -webkit-user-select: none;      /* 禁止選文字 */
-      background: #fff5f5;
+      background: var(--page-bg);
       font-family: "Noto Sans TC", sans-serif;
+      /* 不讓整頁滾動，但允許縮放 */
+      overflow: hidden;
+      touch-action: pinch-zoom; /* 允許雙指縮放 */
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -ms-touch-action: pinch-zoom;
+    }
+
+    /* 容器置中 */
+    #pdf-viewer {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+      box-sizing: border-box;
+      padding: 10px;
+      overflow: hidden;
+      touch-action: pinch-zoom;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
 
-    #pdf-viewer {
-      width: 100%;
-      max-width: 900px;
-      text-align: center;
-      overflow: hidden;
-      touch-action: pinch-zoom; /* 保持可縮放 */
-    }
-
+    /* canvas 使用 CSS 尺寸控制 (實際像素由 JS 設定) */
     canvas {
       display: block;
       max-width: 98%;
-      height: auto; /* ✅ 自動依比例縮放高度 */
-      margin: 0 auto;
+      width: 98%;
+      height: auto; /* 讓 CSS 高度跟隨實際畫布比例 */
       border-radius: 8px;
-      border: 2px solid #d4af37;
-      box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
-      touch-action: pinch-zoom;
+      border: 2px solid var(--gold);
+      box-shadow: 0 0 8px rgba(212,175,55,0.2);
+      touch-action: pinch-zoom; /* 針對 canvas 保留縮放手勢 */
+      -webkit-user-drag: none;
     }
 
     .controls, .month-bar {
       margin: 10px 0;
+      width: 100%;
+      max-width: 900px;
+      box-sizing: border-box;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
     }
 
     button {
       padding: 8px 14px;
       font-size: 15px;
-      margin: 3px;
       cursor: pointer;
-      border: 1.5px solid #d4af37;
+      border: 1.5px solid var(--gold);
       border-radius: 6px;
       color: #fff;
-      background: #c62828;
-      transition: all 0.25s ease;
+      background: var(--accent);
+      transition: background .2s;
     }
+    button:hover { background: #e53935; }
 
-    button:hover {
-      background: #e53935;
-    }
-
-    /* ✅ 月份列可以橫向滑動 */
+    /* 月份列橫向滾動 */
     .month-bar {
       display: flex;
+      gap: 6px;
+      align-items: center;
       justify-content: flex-start;
       background: #ffebee;
       padding: 8px;
       border-radius: 8px;
       box-shadow: 0 0 6px rgba(0,0,0,0.05);
-      overflow-x: auto;
+      overflow-x: auto;        /* 橫向滑動 */
       white-space: nowrap;
       scroll-behavior: smooth;
-      touch-action: pan-x pinch-zoom; /* 允許左右滑動與縮放 */
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x pinch-zoom; /* 左右滑動與縮放同時允許 */
     }
-
-    /* ✅ 美化 scrollbar（可選） */
-    .month-bar::-webkit-scrollbar {
-      height: 6px;
-    }
-    .month-bar::-webkit-scrollbar-thumb {
-      background-color: #d4af37;
-      border-radius: 3px;
-    }
-    .month-bar::-webkit-scrollbar-track {
-      background-color: #fff5f5;
-    }
-
-    .month-bar button {
-      flex: 0 0 auto;
-      margin: 3px 6px;
-    }
+    .month-bar::-webkit-scrollbar { height: 6px; }
+    .month-bar::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
+    .month-bar button { flex: 0 0 auto; margin: 0; }
 
     #page-info {
       color: #b71c1c;
@@ -113,8 +121,15 @@
       background: linear-gradient(145deg, #ffeb3b, #fdd835);
       color: #8b0000;
       font-weight: 700;
-      text-shadow: 0 0 3px rgba(255, 255, 255, 0.7);
-      box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+      text-shadow: 0 0 3px rgba(255,255,255,0.7);
+      box-shadow: 0 0 10px rgba(212,175,55,0.4);
+    }
+
+    /* 若畫面高度太小時，按鈕與 page-info 不會擠壓 canvas */
+    @media (max-height: 520px) {
+      .controls { gap: 8px; }
+      #page-info { font-size: 14px; }
+      button { padding: 6px 10px; font-size: 14px; }
     }
   </style>
 </head>
@@ -128,33 +143,29 @@
       <button id="next">➡️ 下一頁</button>
     </div>
 
-    <canvas id="pdf-canvas"></canvas>
+    <canvas id="pdf-canvas" aria-label="PDF 內容"></canvas>
   </div>
 
   <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
+    // PDF 檔案路徑
     const url = 'zhao.pdf';
-    let pdfDoc = null, pageNum = 1;
+
+    let pdfDoc = null;
+    let pageNum = 1;
     const canvas = document.getElementById('pdf-canvas');
     const ctx = canvas.getContext('2d');
+    const viewer = document.getElementById('pdf-viewer');
 
+    // PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+    // 你的頁碼對應（保留你提供的對應）
     const contentPages = {
-      1: 1,
-      2: 12,
-      3: 13,
-      4: 14,
-      5: 18,
-      6: 20,
-      7: 26,
-      8: 32,
-      9: 38,
-      10: 44,
-      11: 48,
-      12: 54
+      1: 1, 2: 12, 3: 13, 4: 14, 5: 18, 6: 20,
+      7: 26, 8: 32, 9: 38, 10: 44, 11: 48, 12: 54
     };
 
     const btnNames = {
@@ -172,6 +183,7 @@
       12: '時辰吉日'
     };
 
+    // 產生月份按鈕
     const monthBar = document.getElementById('month-bar');
     for (let i = 1; i <= 12; i++) {
       const btn = document.createElement('button');
@@ -189,41 +201,79 @@
 
     function highlightMonth(activeMonth) {
       document.querySelectorAll('.month-bar button').forEach(btn => {
-        btn.classList.toggle('active', parseInt(btn.dataset.month) === activeMonth);
+        btn.classList.toggle('active', parseInt(btn.dataset.month, 10) === activeMonth);
       });
     }
 
-    pdfjsLib.getDocument(url).promise.then(pdfDoc_ => {
-      pdfDoc = pdfDoc_;
+    // 載入 PDF 並渲染
+    pdfjsLib.getDocument(url).promise.then(pdf => {
+      pdfDoc = pdf;
       renderPage(pageNum);
       highlightMonth(1);
+      // 若視窗大小改變，重新調整 canvas
+      window.addEventListener('resize', () => renderPage(pageNum));
+      // iOS 在主畫面切回可能需要微調，監聽 visibilitychange
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) renderPage(pageNum);
+      });
+    }).catch(err => {
+      console.error('載入 PDF 錯誤', err);
+      // 可視需要顯示錯誤訊息
     });
 
+    // renderPage：會依容器寬度自動計算 scale 並考慮 devicePixelRatio（避免模糊）
     function renderPage(num) {
       pdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale: 1.2 });
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        page.render({ canvasContext: ctx, viewport: viewport });
-        document.getElementById('page-info').textContent =
-          `第 ${num} / ${pdfDoc.numPages} 頁`;
+        // 先取得原始 viewport (scale=1)
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+
+        // 計算 CSS 目標寬度 (容器的 98%)
+        const containerWidth = Math.min(viewer.clientWidth, 900); // 與 max-width 同步
+        const targetCssWidth = Math.floor(containerWidth * 0.98);
+
+        // 計算 render scale（以 CSS 像素為基準）
+        let scale = targetCssWidth / unscaledViewport.width;
+        if (scale <= 0) scale = 1.0;
+
+        // 考量裝置像素比，讓 canvas 真實像素更清晰
+        const outputScale = window.devicePixelRatio || 1;
+
+        // 最終用於渲染的 viewport（乘上 devicePixelRatio）
+        const renderViewport = page.getViewport({ scale: scale * outputScale });
+
+        // 設定 canvas 的實際像素尺寸（width/height 屬性）與 CSS 尺寸（style）
+        canvas.width = Math.floor(renderViewport.width);
+        canvas.height = Math.floor(renderViewport.height);
+
+        canvas.style.width = Math.floor(renderViewport.width / outputScale) + 'px'; // CSS 寬度
+        canvas.style.height = Math.floor(renderViewport.height / outputScale) + 'px'; // CSS 高度
+
+        // 清除畫面
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 渲染到 canvas
+        const renderContext = {
+          canvasContext: ctx,
+          viewport: renderViewport
+        };
+        page.render(renderContext).promise.then(() => {
+          document.getElementById('page-info').textContent = `第 ${num} / ${pdfDoc.numPages} 頁`;
+        });
       });
     }
 
+    // Prev / Next 按鈕
     document.getElementById('prev').addEventListener('click', () => {
-      if (pageNum <= 1) return;
+      if (!pdfDoc || pageNum <= 1) return;
       pageNum--;
       renderPage(pageNum);
     });
-
     document.getElementById('next').addEventListener('click', () => {
-      if (pageNum >= pdfDoc.numPages) return;
+      if (!pdfDoc || pageNum >= pdfDoc.numPages) return;
       pageNum++;
       renderPage(pageNum);
     });
   </script>
 </body>
 </html>
-
-
-
