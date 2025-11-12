@@ -16,9 +16,9 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    overflow: hidden; /* ✅ 鎖定整頁滾動 */
-    font-family: "Noto Sans TC", sans-serif;
     background: #fff5f5;
+    font-family: "Noto Sans TC", sans-serif;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -26,12 +26,12 @@
 
   #pdf-viewer {
     flex: 1;
-    display: flex;
-    flex-direction: column;
     width: 100%;
     max-width: 900px;
-    justify-content: center;
+    display: flex;
+    flex-direction: column;
     align-items: center;
+    overflow: hidden;
   }
 
   .month-bar {
@@ -43,9 +43,8 @@
     box-shadow: 0 0 6px rgba(0,0,0,0.05);
     overflow-x: auto;
     white-space: nowrap;
-    scroll-behavior: smooth;
     width: 96%;
-    margin-top: 8px;
+    margin: 8px 0;
   }
 
   .month-bar button {
@@ -65,20 +64,18 @@
     background: linear-gradient(145deg, #ffeb3b, #fdd835);
     color: #8b0000;
     font-weight: 700;
-    text-shadow: 0 0 3px rgba(255,255,255,0.7);
     box-shadow: 0 0 10px rgba(212,175,55,0.4);
   }
 
   #canvas-wrapper {
     flex: 1;
     width: 96%;
-    max-height: calc(100% - 160px);
-    overflow: hidden;
-    position: relative;
+    background: #fff;
     border-radius: 8px;
     border: 2px solid #d4af37;
     box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
-    background: #fff;
+    position: relative;
+    overflow: hidden;
     touch-action: none;
     display: flex;
     justify-content: center;
@@ -97,12 +94,6 @@
     margin: 10px 0;
   }
 
-  button {
-    padding: 8px 14px;
-    font-size: 15px;
-    cursor: pointer;
-  }
-
   #page-info {
     color: #b71c1c;
     font-weight: 600;
@@ -111,13 +102,14 @@
 
   footer {
     width: 100%;
+    text-align: center;
     background: linear-gradient(180deg, #fff8e1 0%, #fff3cd 100%);
     border-top: 2px solid #d4af37;
     color: #5d4037;
     font-size: 14px;
     line-height: 1.6;
-    padding: 10px 0;
-    text-align: center;
+    padding: 12px 0;
+    flex-shrink: 0;
   }
 
   footer h3 {
@@ -130,9 +122,11 @@
 <body>
   <div id="pdf-viewer">
     <div class="month-bar" id="month-bar"></div>
+
     <div id="canvas-wrapper">
       <canvas id="pdf-canvas"></canvas>
     </div>
+
     <div class="controls">
       <button id="prev">⬅️ 上一頁</button>
       <span id="page-info"></span>
@@ -242,7 +236,7 @@
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        zoom = Math.min(3, Math.max(0.8, initialZoom * (newDist / initialDistance)));
+        zoom = Math.min(3, Math.max(1, initialZoom * (newDist / initialDistance)));
         updateTransform();
       } else if (e.touches.length === 1 && zoom > 1) {
         e.preventDefault();
@@ -262,8 +256,8 @@
         touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
         if (Math.abs(diffX) > threshold) {
-          if (diffX > 0 && pageNum > 1) pageNum--;
-          else if (diffX < 0 && pageNum < pdfDoc.numPages) pageNum++;
+          if (diffX < 0 && pageNum < pdfDoc.numPages) pageNum++;
+          else if (diffX > 0 && pageNum > 1) pageNum--;
           renderPage(pageNum);
         }
       }
