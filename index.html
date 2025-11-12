@@ -24,57 +24,92 @@
       flex-direction: column;
       align-items: center;
     }
+
     #pdf-viewer {
       width: 100%;
       max-width: 900px;
       text-align: center;
     }
+
     canvas {
       width: 98%;
-      border-radius: 8px;
-      border: 2px solid #d4af37; /* ✨ 細金邊 */
-      box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
-      touch-action: pan-y; /* ✅ 攔截水平滑動 */
+      border-radius: 10px;
+      border: 2px solid #d4af37;
+      box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+      touch-action: pan-y;
       -webkit-user-select: none;
       user-select: none;
       opacity: 1;
-      transition: opacity 0.3s ease; /* ✅ 淡入淡出動畫 */
+      transition: opacity 0.3s ease;
     }
-    .fade-out {
-      opacity: 0;
-    }
+
+    /* ✨ 控制區與月分列 */
     .controls, .month-bar {
       margin: 10px 0;
     }
+
+    /* 🎨 精緻按鈕設計 */
     button {
-      padding: 8px 14px;
+      position: relative;
+      padding: 10px 16px;
       font-size: 15px;
-      margin: 3px;
+      margin: 4px 6px;
       cursor: pointer;
-      border: 1.5px solid #d4af37;
-      border-radius: 6px;
-      color: #fff;
-      background: #c62828;
-      transition: all 0.25s ease;
-    }
-    button:hover {
-      background: #e53935;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(145deg, #d32f2f, #b71c1c);
+      color: #fffbe6;
+      font-weight: 600;
+      box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.15),
+        inset 0 1px 2px rgba(255, 255, 255, 0.2);
+      transition: all 0.2s ease-in-out;
     }
 
-    /* ✅ 月份列可以橫向滑動 */
+    button:hover {
+      background: linear-gradient(145deg, #e53935, #c62828);
+      box-shadow:
+        0 3px 8px rgba(0, 0, 0, 0.2),
+        0 0 8px rgba(255, 215, 0, 0.4);
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(1px);
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.3),
+        0 0 3px rgba(255, 215, 0, 0.4);
+    }
+
+    /* 📜 月份列外觀 */
     .month-bar {
       display: flex;
       justify-content: flex-start;
-      background: #ffebee;
-      padding: 8px;
-      border-radius: 8px;
-      box-shadow: 0 0 6px rgba(0,0,0,0.05);
+      align-items: center;
+      background: #fff0f0;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1.5px solid #e0b600;
+      box-shadow:
+        inset 0 1px 3px rgba(255, 255, 255, 0.5),
+        0 2px 8px rgba(212, 175, 55, 0.15);
       overflow-x: auto;
       white-space: nowrap;
       scroll-behavior: smooth;
     }
 
-    /* ✅ 美化 scrollbar */
+    /* 🌟 選中月分的神社金光效果 */
+    button.active {
+      background: linear-gradient(160deg, #ffeb3b, #fdd835);
+      color: #8b0000;
+      font-weight: 700;
+      box-shadow:
+        0 0 12px rgba(255, 230, 100, 0.7),
+        inset 0 0 4px rgba(255, 255, 255, 0.7);
+      text-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
+    }
+
+    /* ✨ 月份列 scrollbar 微金化 */
     .month-bar::-webkit-scrollbar {
       height: 6px;
     }
@@ -86,172 +121,157 @@
       background-color: #fff5f5;
     }
 
-    .month-bar button {
-      flex: 0 0 auto;
-      margin: 3px 6px;
-    }
-
+    /* 頁碼文字 */
     #page-info {
       color: #b71c1c;
       font-weight: 600;
       font-size: 16px;
-    }
-
-    button.active {
-      background: linear-gradient(145deg, #ffeb3b, #fdd835);
-      color: #8b0000;
-      font-weight: 700;
-      text-shadow: 0 0 3px rgba(255, 255, 255, 0.7);
-      box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
     }
   </style>
 </head>
 <body>
   <div id="pdf-viewer">
     <div class="month-bar" id="month-bar"></div>
-	
+
     <canvas id="pdf-canvas"></canvas>
-	
-	<div class="controls">
-      <button id="prev">⬅️ 上一頁</button>
+
+    <div class="controls">
+      <button id="prev">上一頁</button>
       <span id="page-info"></span>
-      <button id="next">下一頁 ➡️</button>
+      <button id="next">下一頁</button>
     </div>
-	
   </div>
 
   <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
-	const url = 'zhao.pdf';
-	let pdfDoc = null, pageNum = 1;
-	const canvas = document.getElementById('pdf-canvas');
-	const ctx = canvas.getContext('2d');
+    const url = 'zhao.pdf';
+    let pdfDoc = null, pageNum = 1;
+    const canvas = document.getElementById('pdf-canvas');
+    const ctx = canvas.getContext('2d');
 
-	pdfjsLib.GlobalWorkerOptions.workerSrc =
-	  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-	const contentPages = {
-	  1: 1, 2: 12, 3: 13, 4: 14, 5: 18, 6: 20,
-	  7: 28, 8: 34, 9: 38, 10: 44, 11: 48, 12: 54
-	};
+    const contentPages = {
+      1: 1, 2: 12, 3: 13, 4: 14, 5: 18, 6: 20,
+      7: 28, 8: 34, 9: 38, 10: 44, 11: 48, 12: 54
+    };
 
-	const btnNames = {
-	  1: '昭安宮簡介', 2: '點光明燈', 3: '慶典日期', 4: '交接典禮',
-	  5: '太歲丙午年', 6: '2026/1-3月', 7: '2026/4-6月',
-	  8: '2026/7-9月', 9: '2026/10-12月', 10: '2027/1-2月',
-	  11: '生肖運勢', 12: '時辰吉日'
-	};
+    const btnNames = {
+      1: '昭安宮簡介', 2: '點光明燈', 3: '慶典日期', 4: '交接典禮',
+      5: '太歲丙午年', 6: '2026/1-3月', 7: '2026/4-6月',
+      8: '2026/7-9月', 9: '2026/10-12月', 10: '2027/1-2月',
+      11: '生肖運勢', 12: '時辰吉日'
+    };
 
-	const monthBar = document.getElementById('month-bar');
-	for (let i = 1; i <= 12; i++) {
-	  const btn = document.createElement('button');
-	  btn.textContent = btnNames[i];
-	  btn.dataset.month = i;
-	  btn.addEventListener('click', () => {
-		if (pdfDoc) {
-		  pageNum = contentPages[i];
-		  smoothRender(pageNum);
-		  highlightMonth(i);
-		}
-	  });
-	  monthBar.appendChild(btn);
-	}
+    // 🟡 產生月份按鈕
+    const monthBar = document.getElementById('month-bar');
+    for (let i = 1; i <= 12; i++) {
+      const btn = document.createElement('button');
+      btn.textContent = btnNames[i];
+      btn.dataset.month = i;
+      btn.addEventListener('click', () => {
+        if (pdfDoc) {
+          pageNum = contentPages[i];
+          smoothRender(pageNum);
+          highlightMonth(i);
+        }
+      });
+      monthBar.appendChild(btn);
+    }
 
-	function highlightMonth(activeMonth) {
-	  document.querySelectorAll('.month-bar button').forEach(btn => {
-		btn.classList.toggle('active', parseInt(btn.dataset.month) === activeMonth);
-	  });
-	}
+    function highlightMonth(activeMonth) {
+      document.querySelectorAll('.month-bar button').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.month) === activeMonth);
+      });
+    }
 
-	// 📄 初始化 PDF
-	pdfjsLib.getDocument(url).promise.then(pdfDoc_ => {
-	  pdfDoc = pdfDoc_;
-	  smoothRender(pageNum);
-	  highlightMonth(1);
-	});
+    // 📖 載入 PDF
+    pdfjsLib.getDocument(url).promise.then(pdfDoc_ => {
+      pdfDoc = pdfDoc_;
+      smoothRender(pageNum);
+      highlightMonth(1);
+    });
 
-	// ✅ 改良後的平滑渲染函式（不會閃白）
-	async function smoothRender(num) {
-	  const tempCanvas = document.createElement('canvas');
-	  const tempCtx = tempCanvas.getContext('2d');
-	  const page = await pdfDoc.getPage(num);
-	  const viewport = page.getViewport({ scale: 1.5 });
+    // ✅ 平滑渲染（預載下一頁防閃爍）
+    async function smoothRender(num) {
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      const page = await pdfDoc.getPage(num);
+      const viewport = page.getViewport({ scale: 1.5 });
 
-	  tempCanvas.width = viewport.width;
-	  tempCanvas.height = viewport.height;
-	  await page.render({ canvasContext: tempCtx, viewport }).promise;
+      tempCanvas.width = viewport.width;
+      tempCanvas.height = viewport.height;
+      await page.render({ canvasContext: tempCtx, viewport }).promise;
 
-	  // 讓目前畫面淡出，但先確保已經渲染好新頁
-	  canvas.style.transition = 'opacity 0.3s ease';
-	  canvas.style.opacity = 0;
+      // 淡出舊頁
+      canvas.style.transition = 'opacity 0.3s ease';
+      canvas.style.opacity = 0;
 
-	  setTimeout(() => {
-		// 將暫存畫面畫到主 canvas
-		canvas.width = tempCanvas.width;
-		canvas.height = tempCanvas.height;
-		ctx.drawImage(tempCanvas, 0, 0);
-		document.getElementById('page-info').textContent =
-		  `第 ${num} / ${pdfDoc.numPages} 頁`;
+      setTimeout(() => {
+        // 替換畫面
+        canvas.width = tempCanvas.width;
+        canvas.height = tempCanvas.height;
+        ctx.drawImage(tempCanvas, 0, 0);
+        document.getElementById('page-info').textContent =
+          `第 ${num} / ${pdfDoc.numPages} 頁`;
+        canvas.style.opacity = 1;
+      }, 150);
+    }
 
-		// 再淡入
-		canvas.style.opacity = 1;
-	  }, 150); // 短暫延遲確保動畫連貫
-	}
+    // ⏮️ ⏭️ 按鈕換頁
+    document.getElementById('prev').addEventListener('click', () => {
+      if (pageNum <= 1) return;
+      pageNum--;
+      smoothRender(pageNum);
+    });
 
-	// ✅ 按鈕切換
-	document.getElementById('prev').addEventListener('click', () => {
-	  if (pageNum <= 1) return;
-	  pageNum--;
-	  smoothRender(pageNum);
-	});
+    document.getElementById('next').addEventListener('click', () => {
+      if (pageNum >= pdfDoc.numPages) return;
+      pageNum++;
+      smoothRender(pageNum);
+    });
 
-	document.getElementById('next').addEventListener('click', () => {
-	  if (pageNum >= pdfDoc.numPages) return;
-	  pageNum++;
-	  smoothRender(pageNum);
-	});
+    // 📱 手機滑動手勢（左滑上一頁、右滑下一頁）
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const threshold = 50;
 
-	// ✅ 手機滑動手勢：左滑「上一頁」、右滑「下一頁」
-	let touchStartX = 0;
-	let touchEndX = 0;
-	const threshold = 50;
+    function onTouchStart(e) {
+      const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      touchStartX = x;
+      touchEndX = x;
+    }
 
-	function onTouchStart(e) {
-	  const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-	  touchStartX = x;
-	  touchEndX = x;
-	}
+    function onTouchMove(e) {
+      const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      touchEndX = x;
+      e.preventDefault();
+    }
 
-	function onTouchMove(e) {
-	  const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-	  touchEndX = x;
-	  e.preventDefault();
-	}
+    function onTouchEnd() {
+      const diffX = touchEndX - touchStartX;
+      if (Math.abs(diffX) < threshold) return;
 
-	function onTouchEnd() {
-	  const diffX = touchEndX - touchStartX;
-	  if (Math.abs(diffX) < threshold) return;
+      if (diffX > 0) {
+        // 👉 右滑 → 下一頁
+        if (pageNum < pdfDoc.numPages) {
+          pageNum++;
+          smoothRender(pageNum);
+        }
+      } else {
+        // 👈 左滑 → 上一頁
+        if (pageNum > 1) {
+          pageNum--;
+          smoothRender(pageNum);
+        }
+      }
+    }
 
-	  if (diffX > 0) {
-		// 👉 右滑 → 下一頁
-		if (pageNum < pdfDoc.numPages) {
-		  pageNum++;
-		  smoothRender(pageNum);
-		}
-	  } else {
-		// 👈 左滑 → 上一頁
-		if (pageNum > 1) {
-		  pageNum--;
-		  smoothRender(pageNum);
-		}
-	  }
-	}
-
-	canvas.addEventListener('touchstart', onTouchStart, { passive: true });
-	canvas.addEventListener('touchmove', onTouchMove, { passive: false });
-	canvas.addEventListener('touchend', onTouchEnd, { passive: true });
-	</script>
-
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd, { passive: true });
+  </script>
 </body>
 </html>
