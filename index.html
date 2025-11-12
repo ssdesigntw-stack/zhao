@@ -316,12 +316,13 @@
       if (e.changedTouches.length === 1) {
         touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
-        if (Math.abs(diffX) > threshold) {
-          if (diffX > 0 && pageNum > 1) pageNum--;          // 👉 右滑 上一頁
-          else if (diffX < 0 && pageNum < pdfDoc.numPages) pageNum++; // 👈 左滑 下一頁
-          renderPage(pageNum);
-          resetTransform();
-        }
+		if (Math.abs(diffX) > threshold) {
+		  if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++;      // 👈 左→右：下一頁
+		  else if (diffX < 0 && pageNum > 1) pageNum--;               // 👉 右→左：上一頁
+		  renderPage(pageNum);
+		  resetTransform();
+		}
+        
       }
     }, { passive: true });
   </script>
