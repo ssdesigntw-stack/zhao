@@ -103,9 +103,9 @@
     <div class="month-bar" id="month-bar"></div>
 
     <div class="controls">
-	  <button id="next">⬅️ 下一頁</button>
+	  <button id="prev">⬅️ 上一頁</button>
       <span id="page-info"></span>
-	  <button id="prev">上一頁 ➡️</button>
+	  <button id="next">下一頁 ➡️</button>
     </div>
 
     <canvas id="pdf-canvas"></canvas>
@@ -222,14 +222,14 @@
 	  if (Math.abs(diffX) < threshold) return; // 避免誤觸
 
 	  if (diffX > 0) {
-		// 👉 向右滑（上一頁）
-		if (pageNum > 1) {
+		// 👈 向左滑（上一頁）
+		if (pageNum < pdfDoc.numPagespageNum > 1) {
 		  pageNum--;
 		  renderPage(pageNum);
 		}
 	  } else {
-		// 👈 向左滑（下一頁）
-		if (pageNum < pdfDoc.numPages) {
+		// 👉 向右滑（下一頁）
+		if (pageNum > 1) {
 		  pageNum++;
 		  renderPage(pageNum);
 		}
