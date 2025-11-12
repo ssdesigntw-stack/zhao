@@ -5,17 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>昭安宮農民曆</title>
 
-  <meta name="mobile-web-app-capable" content="yes">
+  <!-- ✅ iOS 全螢幕 App 模式設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="昭安宮農民曆">
+
+  <!-- ✅ 主畫面圖示 -->
   <link rel="apple-touch-icon" href="logo.jpg">
   <link rel="manifest" href="manifest.json">
-
   <style>
     body {
       margin: 0;
       font-family: "Noto Sans TC", sans-serif;
-      background: #fff8f6; /* 💗 原本的淡粉背景 */
+      background: #fff8f6; /* 💗 淡粉背景 */
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -61,10 +63,6 @@
       height: auto;
     }
 
-    .controls, .month-bar {
-      margin: 10px 0;
-    }
-
     .controls {
       position: relative;
       z-index: 50;
@@ -72,6 +70,7 @@
       justify-content: center;
       align-items: center;
       gap: 12px;
+      margin-top: 10px;
     }
 
     button {
@@ -99,6 +98,7 @@
       scroll-behavior: smooth;
       position: relative;
       z-index: 40;
+      margin-top: 10px;
     }
 
     .month-bar button { margin: 3px 6px; }
@@ -116,9 +116,9 @@
       box-shadow: 0 0 8px rgba(212,175,55,0.3);
     }
 
-    /* ✅ 宮廟資訊：無底色、貼合背景 */
+    /* ✅ 宮廟資訊（無底色、間距更小） */
     .temple-info {
-      margin-top: 10px;
+      margin-top: 8px; /* 👈 間距縮小 */
       border-radius: 10px;
       padding: 14px 18px;
       color: #5a3e36;
@@ -172,7 +172,7 @@
     <div class="temple-info">
       <h3>三重昭安宮李天池府千歲</h3>
       <p>📍 地址：<a href="https://www.google.com/maps?q=新北市三重區集美街207巷21號" target="_blank">新北市三重區集美街207巷21號</a></p>
-      <p>📞 電話：<a href="tel:+886229783313">(02) 2978-3313</a></p>
+      <p>📞 電話：<a href="tel:02-29783313">(02) 2978-3313</a></p>
       <p>🔗 Facebook：<a href="https://www.facebook.com/三重昭安宮李天池府千歲-100064702387694" target="_blank">昭安宮粉絲專頁</a></p>
     </div>
   </div>
@@ -252,7 +252,7 @@
       if (pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); resetTransform(); }
     });
 
-    // ✅ 雙擊放大／縮小 + 可拖動（含邊界限制）
+    // ✅ 雙擊放大／縮小 + 拖動限制
     let zoom = 1, offsetX = 0, offsetY = 0;
     const applyInnerTransform = () => inner.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
     const resetTransform = () => { zoom = 1; offsetX = 0; offsetY = 0; inner.style.transform = ''; };
@@ -273,11 +273,9 @@
         e.preventDefault();
         offsetX = e.touches[0].clientX - startX;
         offsetY = e.touches[0].clientY - startY;
-
         const bounds = getBounds();
         offsetX = clamp(offsetX, -bounds.maxOffsetX, bounds.maxOffsetX);
         offsetY = clamp(offsetY, -bounds.maxOffsetY, bounds.maxOffsetY);
-
         applyInnerTransform();
       }
     }, { passive: false });
@@ -295,7 +293,6 @@
       };
     }
 
-    // ✅ 雙擊放大／還原
     let lastTap = 0;
     wrapper.addEventListener('touchend', e => {
       const now = Date.now();
@@ -306,7 +303,7 @@
       lastTap = now;
     });
 
-    // ✅ 右滑 → 下一頁；左滑 → 上一頁
+    // ✅ 左滑 → 下一頁；右滑 → 上一頁（方向修正）
     let touchStartX = 0, touchEndX = 0;
     const threshold = 50;
     wrapper.addEventListener('touchstart', e => {
@@ -320,8 +317,8 @@
         touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
         if (Math.abs(diffX) > threshold) {
-          if (diffX < 0 && pageNum < pdfDoc.numPages) pageNum++; // 👉 右滑 下一頁
-          else if (diffX > 0 && pageNum > 1) pageNum--;          // 👈 左滑 上一頁
+          if (diffX > 0 && pageNum > 1) pageNum--;          // 👉 右滑 上一頁
+          else if (diffX < 0 && pageNum < pdfDoc.numPages) pageNum++; // 👈 左滑 下一頁
           renderPage(pageNum);
           resetTransform();
         }
