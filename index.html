@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <title>昭安宮農民曆</title>
 
   <meta name="mobile-web-app-capable" content="yes" />
@@ -115,40 +116,6 @@
       font-weight: 700;
       box-shadow: 0 0 10px rgba(212,175,55,0.4);
     }
-
-    /* 🌟 宮廟資訊區塊 */
-    .temple-info {
-      margin-top: 15px;
-      background: linear-gradient(135deg, #fff8e1, #ffecb3);
-      border: 2px solid #d4af37;
-      border-radius: 10px;
-      padding: 12px 16px;
-      color: #5d4037;
-      text-align: left;
-      max-width: 900px;
-      box-shadow: 0 0 8px rgba(212, 175, 55, 0.25);
-    }
-
-    .temple-info h3 {
-      margin: 0 0 6px;
-      font-size: 18px;
-      color: #b71c1c;
-      text-align: center;
-    }
-
-    .temple-info p {
-      margin: 4px 0;
-      font-size: 15px;
-    }
-
-    .temple-info a {
-      color: #b71c1c;
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .temple-info a:hover {
-      text-decoration: underline;
-    }
   </style>
 </head>
 <body>
@@ -165,16 +132,6 @@
       <button id="prev">⬅️ 上一頁</button>
       <span id="page-info"></span>
       <button id="next">下一頁 ➡️</button>
-    </div>
-
-    <div class="temple-info">
-      <h3>昭安宮</h3>
-      <p>地址：彰化縣○○鄉○○路123號</p>
-      <p>電話：(04) 1234-5678</p>
-      <p>
-        Facebook：
-        <a href="https://www.facebook.com/昭安宮" target="_blank">昭安宮粉絲專頁</a>
-      </p>
     </div>
   </div>
 
@@ -251,24 +208,66 @@
       if (pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); resetTransform(); }
     });
 
-    // ✅ 雙擊放大／還原
+    // === Zoom 與拖曳相關 ===
     let zoom = 1;
     let offsetX = 0, offsetY = 0;
-    let lastTap = 0;
+    let startX = 0, startY = 0;
+    let isDragging = false;
+
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
     function applyInnerTransform() {
       inner.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
     }
     function resetTransform() {
-      zoom = 1;
-      offsetX = 0;
-      offsetY = 0;
+      zoom = 1; offsetX = 0; offsetY = 0;
       inner.style.transform = '';
     }
+
+    function getBounds() {
+      const wW = wrapper.clientWidth;
+      const wH = wrapper.clientHeight;
+      const displayW = wW;
+      const displayH = (canvas.height / canvas.width) * displayW;
+      const scaledW = displayW * zoom;
+      const scaledH = displayH * zoom;
+      const maxOffsetX = Math.max(0, (scaledW - wW) / 2);
+      const maxOffsetY = Math.max(0, (scaledH - wH) / 2);
+      return { maxOffsetX, maxOffsetY };
+    }
+
+    // ✅ 取消雙指縮放，僅保留拖曳（在放大狀態）
+    wrapper.addEventListener('touchstart', e => {
+      if (e.touches.length === 1 && zoom > 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX - offsetX;
+        startY = e.touches[0].clientY - offsetY;
+      }
+    }, { passive: true });
+
+    wrapper.addEventListener('touchmove', e => {
+      if (isDragging && e.touches.length === 1) {
+        e.preventDefault();
+        offsetX = e.touches[0].clientX - startX;
+        offsetY = e.touches[0].clientY - startY;
+        const { maxOffsetX, maxOffsetY } = getBounds();
+        offsetX = clamp(offsetX, -maxOffsetX, maxOffsetX);
+        offsetY = clamp(offsetY, -maxOffsetY, maxOffsetY);
+        applyInnerTransform();
+      }
+    }, { passive: false });
+
+    wrapper.addEventListener('touchend', () => {
+      isDragging = false;
+    });
+
+    // ✅ 雙擊放大／還原
+    let lastTap = 0;
     wrapper.addEventListener('touchend', e => {
       const now = Date.now();
       if (e.touches.length === 0 && now - lastTap < 300) {
         if (zoom === 1) {
           zoom = 2;
+          offsetX = 0; offsetY = 0;
           applyInnerTransform();
         } else {
           resetTransform();
@@ -277,25 +276,22 @@
       lastTap = now;
     });
 
-    // ✅ 單指滑換頁（方向正確）
+    // ✅ 單指滑換頁（右滑 → 下一頁，左滑 → 上一頁）
     let touchStartX = 0, touchEndX = 0;
     const threshold = 50;
-
     wrapper.addEventListener('touchstart', e => {
       if (e.touches.length === 1 && zoom === 1) {
         touchStartX = e.touches[0].clientX;
       }
     }, { passive: true });
-
     wrapper.addEventListener('touchend', e => {
       if (zoom !== 1) return;
       if (e.changedTouches.length === 1) {
         touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
-
         if (Math.abs(diffX) > threshold) {
-          if (diffX < 0 && pageNum < pdfDoc.numPages) pageNum++;  // 左滑 → 下一頁
-          else if (diffX > 0 && pageNum > 1) pageNum--;           // 右滑 → 上一頁
+          if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++;
+          else if (diffX < 0 && pageNum > 1) pageNum--;
           renderPage(pageNum);
           resetTransform();
         }
