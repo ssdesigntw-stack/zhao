@@ -201,6 +201,40 @@
       pageNum++;
       renderPage(pageNum);
     });
+	
+	// ✅ 加入手機滑動手勢：左滑下一頁、右滑上一頁
+	let touchStartX = 0;
+	let touchEndX = 0;
+
+	canvas.addEventListener('touchstart', (e) => {
+	  touchStartX = e.changedTouches[0].screenX;
+	});
+
+	canvas.addEventListener('touchend', (e) => {
+	  touchEndX = e.changedTouches[0].screenX;
+	  handleSwipeGesture();
+	});
+
+	function handleSwipeGesture() {
+	  const diffX = touchEndX - touchStartX;
+	  const threshold = 50; // 要滑動超過多少像素才算有效
+
+	  if (Math.abs(diffX) < threshold) return; // 避免誤觸
+
+	  if (diffX > 0) {
+		// 👉 向右滑（上一頁）
+		if (pageNum > 1) {
+		  pageNum--;
+		  renderPage(pageNum);
+		}
+	  } else {
+		// 👈 向左滑（下一頁）
+		if (pageNum < pdfDoc.numPages) {
+		  pageNum++;
+		  renderPage(pageNum);
+		}
+	  }
+	}
   </script>
 </body>
 </html>
