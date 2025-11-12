@@ -30,7 +30,6 @@
       text-align: center;
     }
 
-    /* wrapper：固定框，不被縮放 */
     #canvas-wrapper {
       position: relative;
       width: 98%;
@@ -41,10 +40,8 @@
       overflow: hidden;
       touch-action: none;
       background: white;
-      height: auto; /* 會根據 canvas 寬度自適應高度（render 後調整） */
     }
 
-    /* inner：對它做 transform（平移/縮放）*/
     #canvas-inner {
       transform-origin: center center;
       will-change: transform;
@@ -55,13 +52,14 @@
       width: 100%;
       height: 100%;
       position: relative;
+      transition: transform 0.2s ease-out;
     }
 
     canvas {
       display: block;
       user-select: none;
       -webkit-user-select: none;
-      pointer-events: none; /* 事件由 wrapper/inner 處理 */
+      pointer-events: none;
       max-width: 100%;
       height: auto;
     }
@@ -70,7 +68,6 @@
       margin: 10px 0;
     }
 
-    /* 把按鈕放在最上層，避免被縮放內容蓋住 */
     .controls {
       position: relative;
       z-index: 50;
@@ -138,10 +135,8 @@
     </div>
   </div>
 
-  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
-    // ---------- 基本設定（跟你原本一致） ----------
     const url = 'zhao.pdf';
     let pdfDoc = null, pageNum = 1;
     const canvas = document.getElementById('pdf-canvas');
@@ -163,7 +158,6 @@
       11: '生肖運勢', 12: '時辰吉日'
     };
 
-    // 建立月分按鈕
     const monthBar = document.getElementById('month-bar');
     for (let i = 1; i <= 12; i++) {
       const btn = document.createElement('button');
@@ -179,42 +173,34 @@
       });
       monthBar.appendChild(btn);
     }
+
     function highlightMonth(activeMonth) {
       document.querySelectorAll('.month-bar button').forEach(b => {
         b.classList.toggle('active', parseInt(b.dataset.month) === activeMonth);
       });
     }
 
-    // 載入 PDF
     pdfjsLib.getDocument(url).promise.then(pdf => {
       pdfDoc = pdf;
       renderPage(pageNum);
       highlightMonth(1);
     });
 
-    // render 並同步 wrapper 高度（讓 wrapper 顯示合適高度）
     function renderPage(num) {
       pdfDoc.getPage(num).then(page => {
         const viewport = page.getViewport({ scale: 1.5 });
-        // 設定 canvas 的真實像素大小
         canvas.width = viewport.width;
         canvas.height = viewport.height;
-        // 為了在 wrapper 中呈現正確大小，將 canvas 的 CSS 寬度設為 100% (wrapper 寬度)；
-        // 高度會自動依比例縮放 (height:auto)
         page.render({ canvasContext: ctx, viewport }).promise.then(() => {
-          // 根據 canvas 實際尺寸調整 wrapper 高度（以像素高度轉為 CSS 高度）
-          // 因為 canvas 寬度在 CSS 是 100%（wrapper 寬度），計算比例：
           const cssWidth = wrapper.clientWidth;
           const scaleFactor = cssWidth / canvas.width;
           const cssHeight = Math.round(canvas.height * scaleFactor);
           wrapper.style.height = cssHeight + 'px';
-
           document.getElementById('page-info').textContent = `第 ${num} / ${pdfDoc.numPages} 頁`;
         });
       });
     }
 
-    // 按鈕換頁
     document.getElementById('prev').addEventListener('click', () => {
       if (pageNum > 1) { pageNum--; renderPage(pageNum); resetTransform(); }
     });
@@ -222,45 +208,31 @@
       if (pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); resetTransform(); }
     });
 
-    // ---------- 縮放 / 平移（套在 inner） ----------
     let zoom = 1, lastZoom = 1, lastDist = 0;
     let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
     let isPinching = false, isDragging = false;
 
     const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
-
     function applyInnerTransform() {
       inner.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
     }
-
     function resetTransform() {
-      zoom = 1;
-      lastZoom = 1;
-      offsetX = 0;
-      offsetY = 0;
+      zoom = 1; lastZoom = 1; offsetX = 0; offsetY = 0;
       inner.style.transform = '';
     }
 
-    // helpers：計算平移邊界（基於 wrapper CSS 尺寸與 canvas 實際像素）
     function getBounds() {
-      // CSS width/height of wrapper
       const wW = wrapper.clientWidth;
       const wH = wrapper.clientHeight;
-      // CSS display size of canvas inside wrapper: canvas is scaled to 100% width
       const displayW = wW;
       const displayH = (canvas.height / canvas.width) * displayW;
-      // scaled size after zoom
       const scaledW = displayW * zoom;
       const scaledH = displayH * zoom;
-      // maximum translate so that scaled content still covers wrapper (centered origin)
-      // since transform-origin is center, offsets are relative to center; limit offset so content doesn't move too far
-      // we'll compute half-difference
       const maxOffsetX = Math.max(0, (scaledW - wW) / 2);
       const maxOffsetY = Math.max(0, (scaledH - wH) / 2);
-      return { maxOffsetX, maxOffsetY, displayW, displayH, wW, wH };
+      return { maxOffsetX, maxOffsetY };
     }
 
-    // touch handlers on wrapper
     wrapper.addEventListener('touchstart', e => {
       if (e.touches.length === 2) {
         isPinching = true;
@@ -269,7 +241,6 @@
         lastDist = Math.hypot(dx, dy);
       } else if (e.touches.length === 1 && zoom > 1) {
         isDragging = true;
-        // start relative to current offset (offsetX/Y are center-based)
         startX = e.touches[0].clientX - offsetX;
         startY = e.touches[0].clientY - offsetY;
       }
@@ -282,8 +253,6 @@
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const newDist = Math.hypot(dx, dy);
         zoom = Math.min(3, Math.max(1, lastZoom * (newDist / lastDist)));
-
-        // clamp offset based on bounds
         const { maxOffsetX, maxOffsetY } = getBounds();
         offsetX = clamp(offsetX, -maxOffsetX, maxOffsetX);
         offsetY = clamp(offsetY, -maxOffsetY, maxOffsetY);
@@ -292,7 +261,6 @@
         e.preventDefault();
         offsetX = e.touches[0].clientX - startX;
         offsetY = e.touches[0].clientY - startY;
-
         const { maxOffsetX, maxOffsetY } = getBounds();
         offsetX = clamp(offsetX, -maxOffsetX, maxOffsetX);
         offsetY = clamp(offsetY, -maxOffsetY, maxOffsetY);
@@ -301,7 +269,6 @@
     }, { passive: false });
 
     wrapper.addEventListener('touchend', e => {
-      // if no fingers left, finalize
       if (e.touches.length === 0) {
         lastZoom = zoom;
         isPinching = false;
@@ -309,34 +276,45 @@
       }
     });
 
-    // ---------- 單指左右滑動換頁：只有在 zoom==1 時啟用 ----------
+    // ✅ 雙擊放大／還原
+    let lastTap = 0;
+    wrapper.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (e.touches.length === 0 && zoom === 1 && now - lastTap < 300) {
+        zoom = 2;
+        offsetX = 0; offsetY = 0;
+        applyInnerTransform();
+        lastZoom = zoom;
+      } else if (e.touches.length === 0 && zoom > 1 && now - lastTap < 300) {
+        resetTransform();
+      }
+      lastTap = now;
+    });
+
+    // ✅ 單指滑換頁（右滑 → 下一頁，左滑 → 上一頁）
     let touchStartX = 0, touchEndX = 0;
     const threshold = 50;
-
     wrapper.addEventListener('touchstart', e => {
       if (e.touches.length === 1 && zoom === 1) {
         touchStartX = e.touches[0].clientX;
       }
     }, { passive: true });
-
     wrapper.addEventListener('touchend', e => {
       if (zoom !== 1) return;
       if (e.changedTouches.length === 1) {
         touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
         if (Math.abs(diffX) > threshold) {
-          if (diffX < 0 && pageNum < pdfDoc.numPages) pageNum++;
-          else if (diffX > 0 && pageNum > 1) pageNum--;
+          if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++; // 👉右滑 下一頁
+          else if (diffX < 0 && pageNum > 1) pageNum--;          // 👈左滑 上一頁
           renderPage(pageNum);
           resetTransform();
         }
       }
     }, { passive: true });
 
-    // ---------- optional: respond to resize so wrapper height stays correct ----------
     window.addEventListener('resize', () => {
       if (!canvas.width) return;
-      // recompute wrapper height to match canvas aspect ratio
       const cssWidth = wrapper.clientWidth;
       const cssHeight = Math.round(canvas.height * (cssWidth / canvas.width));
       wrapper.style.height = cssHeight + 'px';
