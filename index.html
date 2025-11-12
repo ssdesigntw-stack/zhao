@@ -5,15 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>昭安宮農民曆</title>
 
-  <!-- ✅ iOS 全螢幕 App 模式設定 -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="昭安宮農民曆">
 
-  <!-- ✅ 主畫面圖示 -->
   <link rel="apple-touch-icon" href="logo.jpg">
   <link rel="manifest" href="manifest.json">
-  
+
   <style>
     body {
       margin: 0;
@@ -118,43 +116,40 @@
       box-shadow: 0 0 8px rgba(212,175,55,0.3);
     }
 
-    /* ✅ 宮廟資訊（柔和無框版） */
+    /* ✅ 宮廟資訊（無底色） */
     .temple-info {
-	  margin-top: 15px;
-	  background: #fff8e7;
-	  border-radius: 10px;
-	  padding: 14px 18px;
-	  color: #5a3e36;
-	  text-align: left;
-	  max-width: 900px;
-	  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-	  line-height: 1.6;
-	}
+      margin-top: 15px;
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: #5a3e36;
+      text-align: left;
+      max-width: 900px;
+      line-height: 1.6;
+    }
 
-	.temple-info h3 {
-	  margin: 0 0 8px;
-	  font-size: 19px;
-	  color: #a62828;
-	  text-align: center;
-	  letter-spacing: 1px;
-	}
+    .temple-info h3 {
+      margin: 0 0 8px;
+      font-size: 19px;
+      color: #a62828;
+      text-align: center;
+      letter-spacing: 1px;
+    }
 
-	.temple-info p {
-	  margin: 5px 0;
-	  font-size: 15px;
-	}
+    .temple-info p {
+      margin: 5px 0;
+      font-size: 15px;
+    }
 
-	.temple-info a {
-	  color: #b8860b;
-	  text-decoration: none;
-	  font-weight: 600;
-	}
+    .temple-info a {
+      color: #b8860b;
+      text-decoration: none;
+      font-weight: 600;
+    }
 
-	.temple-info a:hover {
-	  color: #d4af37;
-	  text-decoration: underline;
-	}
-
+    .temple-info a:hover {
+      color: #d4af37;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -173,11 +168,10 @@
       <button id="next">下一頁 ➡️</button>
     </div>
 
-    <!-- ✅ 宮廟資訊（無外框＋實用連結） -->
     <div class="temple-info">
-      <h3>三重昭安宮李天池府千歲 </h3>
+      <h3>三重昭安宮李天池府千歲</h3>
       <p>📍 地址：<a href="https://www.google.com/maps?q=新北市三重區集美街207巷21號" target="_blank">新北市三重區集美街207巷21號</a></p>
-      <p>📞 電話：<a href="tel:02-29783313">02-29783313</a></p>
+      <p>📞 電話：<a href="tel:+886229783313">(02) 2978-3313</a></p>
       <p>🔗 Facebook：<a href="https://www.facebook.com/三重昭安宮李天池府千歲-100064702387694" target="_blank">昭安宮粉絲專頁</a></p>
     </div>
   </div>
@@ -255,37 +249,71 @@
       if (pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); resetTransform(); }
     });
 
-    // ✅ 雙擊放大／還原
-    let zoom = 1, offsetX = 0, offsetY = 0;
-    const applyInnerTransform = () => inner.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
-    const resetTransform = () => { zoom = 1; offsetX = 0; offsetY = 0; inner.style.transform = ''; };
+    // ✅ 雙擊放大／縮小 + 拖動
+    let zoom = 1, offsetX = 0, offsetY = 0, isDragging = false, lastX = 0, lastY = 0;
+
+    const applyTransform = () => {
+      inner.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
+    };
+
+    const resetTransform = () => {
+      zoom = 1;
+      offsetX = 0;
+      offsetY = 0;
+      applyTransform();
+    };
 
     let lastTap = 0;
-    wrapper.addEventListener('touchend', e => {
+    wrapper.addEventListener("touchend", e => {
       const now = Date.now();
       if (e.touches.length === 0 && now - lastTap < 300) {
-        if (zoom === 1) { zoom = 2; applyInnerTransform(); }
-        else { resetTransform(); }
+        if (zoom === 1) zoom = 2;
+        else resetTransform();
+        applyTransform();
       }
       lastTap = now;
     });
 
-    // ✅ 修正方向：右滑 → 下一頁；左滑 → 上一頁
-    let touchStartX = 0, touchEndX = 0;
+    wrapper.addEventListener("touchstart", e => {
+      if (zoom > 1 && e.touches.length === 1) {
+        isDragging = true;
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+      }
+    });
+
+    wrapper.addEventListener("touchmove", e => {
+      if (isDragging && e.touches.length === 1) {
+        const dx = e.touches[0].clientX - lastX;
+        const dy = e.touches[0].clientY - lastY;
+        offsetX += dx;
+        offsetY += dy;
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+        applyTransform();
+      }
+    });
+
+    wrapper.addEventListener("touchend", e => {
+      isDragging = false;
+    });
+
+    // ✅ 右滑 → 下一頁，左滑 → 上一頁
+    let startX = 0, endX = 0;
     const threshold = 50;
     wrapper.addEventListener('touchstart', e => {
       if (e.touches.length === 1 && zoom === 1)
-        touchStartX = e.touches[0].clientX;
+        startX = e.touches[0].clientX;
     }, { passive: true });
 
     wrapper.addEventListener('touchend', e => {
       if (zoom !== 1) return;
       if (e.changedTouches.length === 1) {
-        touchEndX = e.changedTouches[0].clientX;
-        const diffX = touchEndX - touchStartX;
-        if (Math.abs(diffX) > threshold) {
-          if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++; // 👉右滑 下一頁
-          else if (diffX < 0 && pageNum > 1) pageNum--;          // 👈左滑 上一頁
+        endX = e.changedTouches[0].clientX;
+        const diff = endX - startX;
+        if (Math.abs(diff) > threshold) {
+          if (diff > 0 && pageNum < pdfDoc.numPages) pageNum++; // 👉右滑 下一頁
+          else if (diff < 0 && pageNum > 1) pageNum--;          // 👈左滑 上一頁
           renderPage(pageNum);
           resetTransform();
         }
@@ -294,4 +322,3 @@
   </script>
 </body>
 </html>
-
