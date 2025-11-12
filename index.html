@@ -7,7 +7,7 @@
   <title>昭安宮農民曆</title>
 
   <!-- ✅ iOS 全螢幕 App 模式設定 -->
-  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="昭安宮農民曆">
 
@@ -222,19 +222,20 @@
 	  if (Math.abs(diffX) < threshold) return; // 避免誤觸
 
 	  if (diffX > 0) {
-		// 👈 向左滑（上一頁）
-		if (pageNum < pdfDoc.numPagespageNum > 1) {
-		  pageNum--;
+		// 👉 向右滑（下一頁）
+		if (pageNum < pdfDoc.numPages) {
+		  pageNum++;
 		  renderPage(pageNum);
 		}
 	  } else {
-		// 👉 向右滑（下一頁）
+		// 👈 向左滑（上一頁）
 		if (pageNum > 1) {
-		  pageNum++;
+		  pageNum--;
 		  renderPage(pageNum);
 		}
 	  }
 	}
+
   </script>
 </body>
 </html>
