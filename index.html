@@ -208,6 +208,7 @@
       if (pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); resetTransform(); }
     });
 
+    // === 縮放與拖曳 ===
     let zoom = 1, lastZoom = 1, lastDist = 0;
     let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
     let isPinching = false, isDragging = false;
@@ -233,6 +234,7 @@
       return { maxOffsetX, maxOffsetY };
     }
 
+    // ✅ 雙指縮放
     wrapper.addEventListener('touchstart', e => {
       if (e.touches.length === 2) {
         isPinching = true;
@@ -269,29 +271,33 @@
     }, { passive: false });
 
     wrapper.addEventListener('touchend', e => {
-      if (e.touches.length === 0) {
-        lastZoom = zoom;
+      // ✅ 修正：放開雙指不再自動還原
+      if (e.touches.length === 0 && isPinching) {
         isPinching = false;
+        lastZoom = zoom;
+      } else if (e.touches.length === 0 && isDragging) {
         isDragging = false;
       }
     });
 
-    // ✅ 雙擊放大／還原
+    // ✅ 雙擊放大／還原（不與 pinch 衝突）
     let lastTap = 0;
     wrapper.addEventListener('touchend', e => {
       const now = Date.now();
-      if (e.touches.length === 0 && zoom === 1 && now - lastTap < 300) {
-        zoom = 2;
-        offsetX = 0; offsetY = 0;
-        applyInnerTransform();
-        lastZoom = zoom;
-      } else if (e.touches.length === 0 && zoom > 1 && now - lastTap < 300) {
-        resetTransform();
+      if (!isPinching && e.touches.length === 0 && now - lastTap < 300) {
+        if (zoom === 1) {
+          zoom = 2;
+          offsetX = 0; offsetY = 0;
+          applyInnerTransform();
+          lastZoom = zoom;
+        } else {
+          resetTransform();
+        }
       }
       lastTap = now;
     });
 
-    // ✅ 單指滑換頁（右滑 → 下一頁，左滑 → 上一頁）
+    // ✅ 單指滑換頁
     let touchStartX = 0, touchEndX = 0;
     const threshold = 50;
     wrapper.addEventListener('touchstart', e => {
@@ -305,8 +311,8 @@
         touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
         if (Math.abs(diffX) > threshold) {
-          if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++; // 👉右滑 下一頁
-          else if (diffX < 0 && pageNum > 1) pageNum--;          // 👈左滑 上一頁
+          if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++;
+          else if (diffX < 0 && pageNum > 1) pageNum--;
           renderPage(pageNum);
           resetTransform();
         }
