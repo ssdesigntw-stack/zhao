@@ -163,9 +163,9 @@
     </div>
 
     <div class="controls">
-      <button id="prev">⬅️ 上一頁</button>
+      <button id="prev">👈 上一頁</button>
       <span id="page-info"></span>
-      <button id="next">下一頁 ➡️</button>
+      <button id="next">下一頁 👉</button>
     </div>
 
     <!-- ✅ 宮廟資訊 -->
@@ -317,8 +317,8 @@
         touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
 		if (Math.abs(diffX) > threshold) {
-		  if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++;      // 👈 左→右：下一頁
-		  else if (diffX < 0 && pageNum > 1) pageNum--;               // 👉 右→左：上一頁
+		  if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++;      // 👉 左→右：下一頁
+		  else if (diffX < 0 && pageNum > 1) pageNum--;               // 👈 右→左：上一頁
 		  renderPage(pageNum);
 		  resetTransform();
 		}
