@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <title>昭安宮農民曆</title>
 
   <style>
@@ -110,35 +109,33 @@
       box-shadow: 0 0 8px rgba(212,175,55,0.3);
     }
 
-    /* ✅ 柔和版宮廟資訊卡片 */
+    /* ✅ 宮廟資訊（柔和無框版） */
     .temple-info {
-      margin-top: 12px;
-      background: #fffdfa;
-      border: 1.5px solid #d4af37;
+      margin-top: 10px;
+      background: #fffaf2;
       border-radius: 10px;
-      padding: 12px 16px;
-      color: #4a2a00;
+      padding: 10px 14px 16px;
+      color: #5c2b00;
       text-align: left;
       max-width: 850px;
-      box-shadow: 0 0 6px rgba(0,0,0,0.08);
     }
 
     .temple-info h3 {
-      margin: 0 0 6px;
+      margin: 0 0 8px;
       font-size: 18px;
-      color: #a40000;
+      color: #a01919;
       text-align: center;
       letter-spacing: 1px;
     }
 
     .temple-info p {
-      margin: 4px 0;
-      font-size: 14px;
-      line-height: 1.4;
+      margin: 5px 0;
+      font-size: 14.5px;
+      line-height: 1.5;
     }
 
     .temple-info a {
-      color: #c62828;
+      color: #a01919;
       text-decoration: none;
       font-weight: 600;
     }
@@ -163,14 +160,12 @@
       <button id="next">下一頁 ➡️</button>
     </div>
 
-    <!-- ✅ 宮廟資訊 -->
+    <!-- ✅ 宮廟資訊（無外框＋實用連結） -->
     <div class="temple-info">
       <h3>昭安宮</h3>
-      <p>地址：彰化縣○○鄉○○路123號</p>
-      <p>電話：(04) 1234-5678</p>
-      <p>Facebook：
-        <a href="https://www.facebook.com/昭安宮" target="_blank">昭安宮粉絲專頁</a>
-      </p>
+      <p>📍 地址：<a href="https://www.google.com/maps?q=彰化縣彰化市中正路一段123號" target="_blank">彰化縣彰化市中正路一段123號</a></p>
+      <p>📞 電話：<a href="tel:0412345678">(04) 1234-5678</a></p>
+      <p>🔗 Facebook：<a href="https://www.facebook.com/昭安宮" target="_blank">昭安宮粉絲專頁</a></p>
     </div>
   </div>
 
@@ -247,7 +242,7 @@
       if (pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); resetTransform(); }
     });
 
-    // ✅ 雙擊放大／還原（保留）
+    // ✅ 雙擊放大／還原
     let zoom = 1, offsetX = 0, offsetY = 0;
     const applyInnerTransform = () => inner.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
     const resetTransform = () => { zoom = 1; offsetX = 0; offsetY = 0; inner.style.transform = ''; };
@@ -276,8 +271,8 @@
         touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
         if (Math.abs(diffX) > threshold) {
-          if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++; // 👉 右滑 → 下一頁
-          else if (diffX < 0 && pageNum > 1) pageNum--;          // 👈 左滑 → 上一頁
+          if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++; // 👉右滑 下一頁
+          else if (diffX < 0 && pageNum > 1) pageNum--;          // 👈左滑 上一頁
           renderPage(pageNum);
           resetTransform();
         }
