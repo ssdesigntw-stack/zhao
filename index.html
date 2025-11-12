@@ -34,9 +34,14 @@
       border-radius: 8px;
       border: 2px solid #d4af37; /* ✨ 細金邊 */
       box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
-      touch-action: pan-y; /* ✅ 保留垂直滾動但攔截水平滑動 */
+      touch-action: pan-y; /* ✅ 攔截水平滑動 */
       -webkit-user-select: none;
       user-select: none;
+      opacity: 1;
+      transition: opacity 0.3s ease; /* ✅ 淡入淡出動畫 */
+    }
+    .fade-out {
+      opacity: 0;
     }
     .controls, .month-bar {
       margin: 10px 0;
@@ -69,7 +74,7 @@
       scroll-behavior: smooth;
     }
 
-    /* ✅ 美化 scrollbar（可選） */
+    /* ✅ 美化 scrollbar */
     .month-bar::-webkit-scrollbar {
       height: 6px;
     }
@@ -182,15 +187,20 @@
       highlightMonth(1);
     });
 
+    // ✅ 淡入淡出動畫 + 換頁
     function renderPage(num) {
-      pdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale: 1.5 });
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        page.render({ canvasContext: ctx, viewport: viewport });
-        document.getElementById('page-info').textContent =
-          `第 ${num} / ${pdfDoc.numPages} 頁`;
-      });
+      canvas.classList.add('fade-out'); // 淡出
+      setTimeout(() => {
+        pdfDoc.getPage(num).then(page => {
+          const viewport = page.getViewport({ scale: 1.5 });
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          page.render({ canvasContext: ctx, viewport: viewport });
+          document.getElementById('page-info').textContent =
+            `第 ${num} / ${pdfDoc.numPages} 頁`;
+          canvas.classList.remove('fade-out'); // 淡入
+        });
+      }, 200);
     }
 
     document.getElementById('prev').addEventListener('click', () => {
@@ -208,7 +218,7 @@
     // ✅ 手機滑動手勢：左滑「上一頁」、右滑「下一頁」
     let touchStartX = 0;
     let touchEndX = 0;
-    const threshold = 50; // 要滑動超過多少像素才算有效
+    const threshold = 50;
 
     function onTouchStart(e) {
       const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
@@ -219,7 +229,7 @@
     function onTouchMove(e) {
       const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
       touchEndX = x;
-      e.preventDefault(); // 避免與瀏覽器捲動衝突
+      e.preventDefault();
     }
 
     function onTouchEnd() {
