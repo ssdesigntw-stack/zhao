@@ -7,7 +7,7 @@
   <title>昭安宮農民曆</title>
 
   <!-- ✅ iOS 全螢幕 App 模式設定 -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="昭安宮農民曆">
 
@@ -34,6 +34,9 @@
       border-radius: 8px;
       border: 2px solid #d4af37; /* ✨ 細金邊 */
       box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
+      touch-action: pan-y; /* ✅ 保留垂直滾動但攔截水平滑動 */
+      -webkit-user-select: none;
+      user-select: none;
     }
     .controls, .month-bar {
       margin: 10px 0;
@@ -103,9 +106,9 @@
     <div class="month-bar" id="month-bar"></div>
 
     <div class="controls">
-	  <button id="prev">⬅️ 上一頁</button>
+      <button id="prev">⬅️ 上一頁</button>
       <span id="page-info"></span>
-	  <button id="next">下一頁 ➡️</button>
+      <button id="next">下一頁 ➡️</button>
     </div>
 
     <canvas id="pdf-canvas"></canvas>
@@ -201,41 +204,46 @@
       pageNum++;
       renderPage(pageNum);
     });
-	
-	// ✅ 加入手機滑動手勢：左滑下一頁、右滑上一頁
-	let touchStartX = 0;
-	let touchEndX = 0;
 
-	canvas.addEventListener('touchstart', (e) => {
-	  touchStartX = e.changedTouches[0].screenX;
-	});
+    // ✅ 手機滑動手勢：左滑「上一頁」、右滑「下一頁」
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const threshold = 50; // 要滑動超過多少像素才算有效
 
-	canvas.addEventListener('touchend', (e) => {
-	  touchEndX = e.changedTouches[0].screenX;
-	  handleSwipeGesture();
-	});
+    function onTouchStart(e) {
+      const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      touchStartX = x;
+      touchEndX = x;
+    }
 
-	function handleSwipeGesture() {
-	  const diffX = touchEndX - touchStartX;
-	  const threshold = 50; // 要滑動超過多少像素才算有效
+    function onTouchMove(e) {
+      const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      touchEndX = x;
+      e.preventDefault(); // 避免與瀏覽器捲動衝突
+    }
 
-	  if (Math.abs(diffX) < threshold) return; // 避免誤觸
+    function onTouchEnd() {
+      const diffX = touchEndX - touchStartX;
+      if (Math.abs(diffX) < threshold) return;
 
-	  if (diffX > 0) {
-		// 👉 向右滑（下一頁）
-		if (pageNum < pdfDoc.numPages) {
-		  pageNum++;
-		  renderPage(pageNum);
-		}
-	  } else {
-		// 👈 向左滑（上一頁）
-		if (pageNum > 1) {
-		  pageNum--;
-		  renderPage(pageNum);
-		}
-	  }
-	}
+      if (diffX > 0) {
+        // 👉 右滑 → 下一頁
+        if (pageNum < pdfDoc.numPages) {
+          pageNum++;
+          renderPage(pageNum);
+        }
+      } else {
+        // 👈 左滑 → 上一頁
+        if (pageNum > 1) {
+          pageNum--;
+          renderPage(pageNum);
+        }
+      }
+    }
 
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd, { passive: true });
   </script>
 </body>
 </html>
