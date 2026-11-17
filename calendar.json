@@ -1,0 +1,19 @@
+{
+  "year": 2026,
+  "pdf": "zhao.pdf",
+  "version": "2026",
+  "sections": [
+    { "label": "昭安宮簡介",          "page": 1 },
+    { "label": "點光明燈",            "page": 12 },
+    { "label": "慶典日期",            "page": 13 },
+    { "label": "交接典禮",            "page": 14 },
+    { "label": "太歲{ganzhi}年",      "page": 18 },
+    { "label": "{year}/1-3月",        "page": 20 },
+    { "label": "{year}/4-6月",        "page": 28 },
+    { "label": "{year}/7-9月",        "page": 34 },
+    { "label": "{year}/10-12月",      "page": 38 },
+    { "label": "{nextYear}/1-2月",    "page": 44 },
+    { "label": "生肖運勢",            "page": 48 },
+    { "label": "時辰吉日",            "page": 54 }
+  ]
+}

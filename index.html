@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>昭安宮農民曆</title>
 
+  <!-- ✅ 網址結尾補上「/」：從主畫面開啟時網址可能是 .../zhao（少了斜線），
+       這樣 calendar.json、PDF 等相對路徑會找錯資料夾而 404 -->
+  <script>
+    (function () {
+      var p = location.pathname;
+      var last = p.slice(p.lastIndexOf('/') + 1);
+      if (last && last.indexOf('.') === -1) {
+        location.replace(p + '/' + location.search + location.hash);
+      }
+    })();
+  </script>
+
   <!-- ✅ iOS 全螢幕 App 模式設定 -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,7 +33,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      overflow: hidden;
+      overflow-x: hidden; /* 只鎖水平，保留垂直捲動，避免矮螢幕看不到下方資訊 */
     }
 
     #pdf-viewer {
@@ -38,14 +50,14 @@
       border: 2px solid #d4af37;
       box-shadow: 0 0 8px rgba(212,175,55,0.15);
       overflow: hidden;
-      touch-action: none;
+      touch-action: pan-y;   /* 未放大時可上下捲動網頁；放大時由程式改成 none */
       background: white;
     }
 
     #canvas-inner {
       transform-origin: center center;
       will-change: transform;
-      touch-action: none;
+      touch-action: pan-y;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -82,9 +94,12 @@
       color: #fff;
       background: #c62828;
       transition: all 0.25s ease;
+      touch-action: manipulation;   /* iOS 連點按鈕時不要放大整個網頁 */
     }
 
-    button:hover { background: #e53935; }
+    @media (hover: hover) {
+      button:hover { background: #e53935; }
+    }
 
     .month-bar {
       display: flex;
@@ -102,6 +117,26 @@
     }
 
     .month-bar button { margin: 3px 6px; }
+
+    /* 載入中／錯誤提示，蓋在畫布上 */
+    #status {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #b71c1c;
+      font-size: 16px;
+      background: rgba(255,255,255,0.85);
+      z-index: 5;
+      padding: 20px;
+      text-align: center;
+      white-space: pre-line;   /* 錯誤訊息可換行 */
+      word-break: break-all;
+    }
+    #status[hidden] { display: none; }
+    #status.retry { cursor: pointer; text-decoration: underline; }
+    #canvas-wrapper.empty { min-height: 60vh; }
 
     #page-info {
       color: #b71c1c;
@@ -156,7 +191,8 @@
   <div id="pdf-viewer">
     <div class="month-bar" id="month-bar"></div>
 
-    <div id="canvas-wrapper">
+    <div id="canvas-wrapper" class="empty">
+      <div id="status">農民曆載入中…</div>
       <div id="canvas-inner">
         <canvas id="pdf-canvas"></canvas>
       </div>
@@ -177,154 +213,608 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script>
-    const url = 'zhao.pdf';
-    let pdfDoc = null, pageNum = 1;
-    const canvas = document.getElementById('pdf-canvas');
-    const ctx = canvas.getContext('2d');
-    const wrapper = document.getElementById('canvas-wrapper');
-    const inner = document.getElementById('canvas-inner');
+  <script type="module">
+    /* ============================================================
+     * 每年換版只需修改 calendar.json：
+     *   year     年份（干支、按鈕上的年份會自動算）
+     *   pdf      PDF 檔名
+     *   version  （選填）PDF 內容換了但檔名不變時，改這個值讓手機抓新檔
+     *   sections 上方按鈕：label 文字、page 頁碼
+     *            label 可用 {year} {nextYear} {prevYear} {ganzhi} {zodiac}
+     * ============================================================ */
 
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    // pdf.js 5.x：本 PDF 的掃描圖是 JPEG 2000 格式，新版用 WebAssembly 解碼，比 3.x 快約 3 倍
+    const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.624';
+    let pdfjsLib;
+    try {
+      pdfjsLib = await import(`${PDFJS}/legacy/build/pdf.min.mjs`);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS}/legacy/build/pdf.worker.min.mjs`;
+    } catch (err) {
+      console.error('載入 pdf.js 失敗', err);
+      document.getElementById('status').textContent =
+        '閱讀器載入失敗，請檢查網路後重新整理；若仍失敗，請將手機系統更新到最新版';
+      throw err;
+    }
 
-    const contentPages = {
-      1: 1, 2: 12, 3: 13, 4: 14, 5: 18, 6: 20,
-      7: 28, 8: 34, 9: 38, 10: 44, 11: 48, 12: 54
-    };
-
-    const btnNames = {
-      1: '昭安宮簡介', 2: '點光明燈', 3: '慶典日期', 4: '交接典禮',
-      5: '太歲丙午年', 6: '2026/1-3月', 7: '2026/4-6月',
-      8: '2026/7-9月', 9: '2026/10-12月', 10: '2027/1-2月',
-      11: '生肖運勢', 12: '時辰吉日'
-    };
-
+    const wrapper  = document.getElementById('canvas-wrapper');
+    const inner    = document.getElementById('canvas-inner');
     const monthBar = document.getElementById('month-bar');
-    for (let i = 1; i <= 12; i++) {
-      const btn = document.createElement('button');
-      btn.textContent = btnNames[i];
-      btn.dataset.month = i;
-      btn.addEventListener('click', () => {
-        if (pdfDoc) {
-          pageNum = contentPages[i];
-          renderPage(pageNum);
-          highlightMonth(i);
-          resetTransform();
+    const pageInfo = document.getElementById('page-info');
+    const statusEl = document.getElementById('status');
+
+    // ---------- 參數 ----------
+    const DOUBLE_TAP_ZOOM = 2;        // 雙擊放大倍率
+    const MAX_ZOOM = 4;               // 兩指最大放大倍率
+    // 繪製寬度上限：掃描圖原始寬度約 1122px，畫得比原圖大不會更清楚，只會更慢、更耗記憶體
+    const MAX_CANVAS_WIDTH = 1400;
+    const CACHE_SIZE = 5;             // 最多快取幾頁
+    const LOADING_DELAY_MS = 400;     // 超過這個時間還沒畫好，才顯示「載入中」
+    const STALL_TIMEOUT_MS = 20000;   // 超過這個時間還沒畫好，視為網路卡住
+
+    let pdfDoc = null;
+    let pdfUrl = '';
+    let pageNum = 1;
+    let sections = [];                // [{ label, page }]，依頁碼排序
+    let preferredIndex = -1;          // 最後點的按鈕（多個按鈕同一頁時，亮點的那一個）
+
+    // ---------- 干支 / 生肖 ----------
+    const STEMS    = '甲乙丙丁戊己庚辛壬癸';
+    const BRANCHES = '子丑寅卯辰巳午未申酉戌亥';
+    const ZODIAC   = '鼠牛虎兔龍蛇馬羊猴雞狗豬';
+    const mod = (n, m) => ((n % m) + m) % m;
+    const ganzhiOf = y => STEMS[mod(y - 4, 10)] + BRANCHES[mod(y - 4, 12)];
+    const zodiacOf = y => ZODIAC[mod(y - 4, 12)];
+
+    function fillLabel(label, year) {
+      const vars = {
+        year, nextYear: year + 1, prevYear: year - 1,
+        ganzhi: ganzhiOf(year), zodiac: zodiacOf(year)
+      };
+      return label.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+    }
+
+    // ---------- 狀態訊息（可附「點此重試」） ----------
+    let retryHandler = null;
+    function showStatus(msg, onRetry) {
+      statusEl.textContent = msg;
+      statusEl.hidden = !msg;
+      retryHandler = onRetry || null;
+      statusEl.classList.toggle('retry', !!onRetry);
+    }
+    statusEl.addEventListener('click', () => {
+      if (!retryHandler) return;
+      const h = retryHandler;
+      retryHandler = null;
+      h();
+    });
+
+    // ---------- 初始化 ----------
+    async function loadConfig() {
+      const fetchConfig = async cacheMode => {
+        const res = await fetch('calendar.json', { cache: cacheMode });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('格式錯誤');
+        return data;
+      };
+      try {
+        // no-cache：每次都向伺服器確認，換年後不會讀到舊設定
+        return await fetchConfig('no-cache');
+      } catch (err) {
+        console.warn('calendar.json 無法連線確認，改用手機暫存', err);
+        try {
+          // 連不到伺服器時，退而使用手機暫存的版本
+          return await fetchConfig('force-cache');
+        } catch (err2) {
+          console.error('讀取 calendar.json 失敗', err2);
+          showStatus(`設定檔讀取失敗，請稍後重新整理（${err2.message}）\n` +
+            `頁面：${location.href}\n設定檔：${new URL('calendar.json', location.href).href}`);
+          return null;
+        }
+      }
+    }
+
+    function parseSections(list, year) {
+      if (!Array.isArray(list)) {
+        console.warn('calendar.json 缺少 sections');
+        return [];
+      }
+      const result = list
+        .filter(s => {
+          const page = s ? Number(s.page) : NaN;
+          const ok = s && s.label != null && String(s.label).trim() !== '' &&
+                     Number.isInteger(page) && page >= 1;
+          if (!ok) console.warn('calendar.json 設定有誤，已略過：', s);
+          return ok;
+        })
+        .map(s => ({ label: fillLabel(String(s.label).trim(), year), page: Number(s.page) }))
+        .sort((a, b) => a.page - b.page);
+      result.forEach((s, i) => {
+        if (i > 0 && result[i - 1].page === s.page) console.warn('calendar.json 有重複頁碼：', s);
+      });
+      return result;
+    }
+
+    async function init() {
+      const config = await loadConfig();
+      if (!config) return;
+
+      const year = Number(config.year) || new Date().getFullYear();
+      const version = config.version || year;
+      pdfUrl = `${config.pdf || 'zhao.pdf'}?v=${encodeURIComponent(version)}`;
+
+      // 按鈕先出來，不用等 PDF 載入
+      sections = parseSections(config.sections, year);
+      buildButtons();
+      if (sections.length) { pageNum = sections[0].page; preferredIndex = 0; }
+      highlightSection();
+
+      await openAndShow();
+    }
+
+    async function openDocument() {
+      if (pdfDoc) {
+        const old = pdfDoc;
+        pdfDoc = null;
+        clearCache();
+        old.destroy().catch(() => {});
+      }
+      try {
+        pdfDoc = await pdfjsLib.getDocument({
+          url: pdfUrl,
+          wasmUrl: `${PDFJS}/wasm/`,
+          // 只下載要看的頁面，不在背景下載整份 PDF（手機省流量、翻頁不搶頻寬）
+          disableAutoFetch: true,
+          disableStream: true
+        }).promise;
+        return true;
+      } catch (err) {
+        console.error('讀取 PDF 失敗', err);
+        return false;
+      }
+    }
+
+    // 開啟（或重新開啟）PDF 並顯示目前頁。
+    // 網路斷掉後 pdf.js 不會重抓失敗的部分，所以重試時要整份重新開啟。
+    async function openAndShow() {
+      renderSeq++;   // 讓進行中的繪製作廢
+      showStatus(pdfDoc ? '重新連線中…' : '農民曆載入中…');
+      if (!(await openDocument())) {
+        showStatus('農民曆載入失敗，請檢查網路後點此重試', openAndShow);
+        return;
+      }
+      const total = pdfDoc.numPages;
+      if (sections.some(s => s.page > total)) {
+        console.warn(`calendar.json 有頁碼超過 PDF 總頁數（${total}），已略過`);
+        const keep = sections[preferredIndex];
+        sections = sections.filter(s => s.page <= total);
+        preferredIndex = sections.indexOf(keep);
+        buildButtons();
+      }
+      goTo(pageNum);
+    }
+
+    function buildButtons() {
+      monthBar.innerHTML = '';
+      sections.forEach((s, i) => {
+        const btn = document.createElement('button');
+        btn.textContent = s.label;
+        btn.dataset.index = i;
+        btn.addEventListener('click', () => { preferredIndex = i; goTo(s.page); });
+        monthBar.appendChild(btn);
+      });
+    }
+
+    // 目前頁碼屬於哪個章節（最後一個 page <= 目前頁 的章節）
+    function highlightSection() {
+      let active = -1;
+      sections.forEach((s, i) => { if (s.page <= pageNum) active = i; });
+      if (active >= 0 && sections[preferredIndex] &&
+          sections[preferredIndex].page === sections[active].page) {
+        active = preferredIndex;
+      }
+      monthBar.querySelectorAll('button').forEach(b => {
+        const on = Number(b.dataset.index) === active;
+        b.classList.toggle('active', on);
+        if (on) {
+          // 只捲動按鈕列，不捲動整個頁面
+          monthBar.scrollTo({
+            left: b.offsetLeft - (monthBar.clientWidth - b.offsetWidth) / 2,
+            behavior: 'smooth'
+          });
         }
       });
-      monthBar.appendChild(btn);
     }
 
-    function highlightMonth(activeMonth) {
-      document.querySelectorAll('.month-bar button').forEach(b => {
-        b.classList.toggle('active', parseInt(b.dataset.month) === activeMonth);
-      });
-    }
-
-    pdfjsLib.getDocument(url).promise.then(pdf => {
-      pdfDoc = pdf;
+    // ---------- 換頁 ----------
+    function goTo(num) {
+      pageNum = Math.min(Math.max(num, 1), pdfDoc ? pdfDoc.numPages : Infinity);
+      highlightSection();
+      if (!pdfDoc) return;   // PDF 還在載入，載入完會自動跳到這頁
+      resetTransform();
+      cancelZoomJob();
+      zoomCanvas = null;     // 放大圖會在換上新頁時釋放，不會先閃白
+      pageInfo.textContent = `第 ${pageNum} / ${pdfDoc.numPages} 頁`;
+      cancelFarRenders();
       renderPage(pageNum);
-      highlightMonth(1);
-    });
+    }
+    const nextPage = () => { if (pdfDoc && pageNum < pdfDoc.numPages) goTo(pageNum + 1); };
+    const prevPage = () => { if (pdfDoc && pageNum > 1) goTo(pageNum - 1); };
 
-    function renderPage(num) {
-      pdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale: 1.5 });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        page.render({ canvasContext: ctx, viewport }).promise.then(() => {
-          const cssWidth = wrapper.clientWidth;
-          const scaleFactor = cssWidth / canvas.width;
-          const cssHeight = Math.round(canvas.height * scaleFactor);
-          wrapper.style.height = cssHeight + 'px';
-          document.getElementById('page-info').textContent = `第 ${num} / ${pdfDoc.numPages} 頁`;
-        });
+    // ---------- 繪製 ----------
+    // 每頁畫在獨立畫布並快取，同時預先畫好上一頁 / 下一頁，翻頁時直接換上。
+    const pageCache = new Map();   // key -> { page, promise, cancel, canvas }
+    let shownCanvas = null;        // 目前顯示中的畫布
+    let zoomCanvas = null;         // 放大用的高解析度畫布
+    let zoomJob = null;            // 進行中的高解析度繪製 { num, seq, cancel }
+    let renderSeq = 0;
+
+    const cacheKey = num => `${num}@${wrapper.clientWidth}`;
+    const isCancel = err => err && err.name === 'RenderingCancelledException';
+    const dpr = () => Math.max(window.devicePixelRatio || 1, 1);
+
+    function isCached(c) {
+      for (const e of pageCache.values()) if (e.canvas === c) return true;
+      return false;
+    }
+
+    // iOS 需要手動把畫布縮成 0 才會釋放記憶體；顯示中、快取中的不能釋放
+    function freeCanvas(c) {
+      if (c && c !== shownCanvas && !isCached(c)) { c.width = 0; c.height = 0; }
+    }
+
+    function evict(key) {
+      const e = pageCache.get(key);
+      if (!e) return;
+      pageCache.delete(key);
+      if (e.canvas) freeCanvas(e.canvas); else e.cancel();   // 還沒畫完的直接取消
+    }
+    function clearCache() { [...pageCache.keys()].forEach(evict); }
+
+    // 快速連點時，取消不是目前頁附近、還沒畫完的頁面，讓目前頁優先
+    function cancelFarRenders() {
+      for (const [key, e] of [...pageCache]) {
+        if (!e.canvas && Math.abs(e.page - pageNum) > 1) evict(key);
+      }
+    }
+
+    // 把第 num 頁畫成一張新畫布；factor = 相對螢幕解析度的倍率
+    function drawPage(num, factor) {
+      const doc = pdfDoc;
+      let task = null, cancelled = false;
+      const promise = (async () => {
+        if (!doc) throw new Error('PDF 尚未載入');
+        const page = await doc.getPage(num);
+        if (cancelled) {
+          const err = new Error('cancelled');
+          err.name = 'RenderingCancelledException';
+          throw err;
+        }
+        const base = page.getViewport({ scale: 1 });
+        const width = Math.min(wrapper.clientWidth * dpr() * factor, MAX_CANVAS_WIDTH);
+        const viewport = page.getViewport({ scale: width / base.width });
+        const c = document.createElement('canvas');
+        c.width  = Math.floor(viewport.width);
+        c.height = Math.floor(viewport.height);
+        task = page.render({ canvas: c, canvasContext: c.getContext('2d'), viewport });
+        try {
+          await task.promise;
+        } catch (err) {
+          c.width = 0; c.height = 0;
+          throw err;
+        } finally {
+          // 釋放 pdf.js 保留的解碼圖片（每頁約 7MB），否則越翻越耗記憶體
+          page.cleanup();
+        }
+        return c;
+      })();
+      return { promise, cancel() { cancelled = true; if (task) task.cancel(); } };
+    }
+
+    // 取得一般解析度的頁面（有快取就直接用）
+    function getRendered(num) {
+      const key = cacheKey(num);
+      let e = pageCache.get(key);
+      if (e) {
+        pageCache.delete(key); pageCache.set(key, e);   // 移到最新（LRU）
+        return e.promise;
+      }
+      const d = drawPage(num, 1);
+      e = { page: num, promise: d.promise, cancel: d.cancel, canvas: null };
+      pageCache.set(key, e);
+      d.promise.then(
+        c => { if (pageCache.get(key) === e) e.canvas = c; else freeCanvas(c); },
+        () => { if (pageCache.get(key) === e) pageCache.delete(key); }
+      );
+      while (pageCache.size > CACHE_SIZE) evict(pageCache.keys().next().value);
+      return d.promise;
+    }
+
+    // 把畫好的畫布直接放進畫面（不複製，省記憶體），並釋放被換掉的畫布
+    function show(c, num) {
+      const prev = shownCanvas;
+      const cssWidth = wrapper.clientWidth;
+      const cssHeight = Math.round(c.height * cssWidth / c.width);
+      c.style.width  = cssWidth + 'px';
+      c.style.height = cssHeight + 'px';
+      if (prev !== c) inner.replaceChildren(c);
+      shownCanvas = c;
+      if (prev && prev !== c) freeCanvas(prev);
+      wrapper.style.height = cssHeight + 'px';
+      wrapper.classList.remove('empty');
+      pageInfo.textContent = `第 ${num} / ${pdfDoc.numPages} 頁`;
+      showStatus('');
+    }
+
+    async function renderPage(num) {
+      if (!pdfDoc) return;
+      const seq = ++renderSeq;
+      const loadingTimer = setTimeout(() => {
+        if (seq === renderSeq) showStatus('載入中…');
+      }, LOADING_DELAY_MS);
+      const stallTimer = setTimeout(() => {
+        if (seq === renderSeq) showStatus('網路不穩，點此重試', openAndShow);
+      }, STALL_TIMEOUT_MS);
+
+      let c;
+      try {
+        c = await getRendered(num);
+      } catch (err) {
+        if (seq === renderSeq && !isCancel(err)) {
+          console.error(err);
+          showStatus('此頁載入失敗，點此重試', openAndShow);
+        }
+        return;
+      } finally {
+        clearTimeout(loadingTimer);
+        clearTimeout(stallTimer);
+      }
+      if (seq !== renderSeq) return;   // 期間又換頁了，放棄這次
+
+      // 若高解析度放大圖已經先畫好並顯示，就不要用一般版本蓋掉它
+      if (zoomCanvas && shownCanvas === zoomCanvas) showStatus('');
+      else show(c, num);
+
+      // 背景預先畫好下一頁、上一頁
+      if (num < pdfDoc.numPages) getRendered(num + 1).catch(() => {});
+      if (num > 1) getRendered(num - 1).catch(() => {});
+    }
+
+    // ---------- 放大時的高解析度版本 ----------
+    function cancelZoomJob() {
+      if (zoomJob) { zoomJob.cancel(); zoomJob = null; }
+    }
+
+    function renderZoomed() {
+      if (!pdfDoc || zoom === 1 || zoomCanvas) return;
+      const num = pageNum, seq = renderSeq;
+      if (zoomJob && zoomJob.num === num && zoomJob.seq === seq) return;   // 已經在畫
+      cancelZoomJob();
+
+      // 一般版本已經接近原圖解析度時，再畫大也不會更清楚，直接放大即可
+      const normalW = Math.min(wrapper.clientWidth * dpr(), MAX_CANVAS_WIDTH);
+      const zoomW   = Math.min(wrapper.clientWidth * dpr() * MAX_ZOOM, MAX_CANVAS_WIDTH);
+      if (zoomW < normalW * 1.15) return;
+
+      const d = drawPage(num, MAX_ZOOM);
+      const job = zoomJob = { num, seq, cancel: d.cancel };
+      d.promise.then(c => {
+        if (zoomJob === job) zoomJob = null;
+        if (num !== pageNum || seq !== renderSeq || zoom === 1) { freeCanvas(c); return; }
+        zoomCanvas = c;
+        show(c, num);
+      }, err => {
+        if (zoomJob === job) zoomJob = null;
+        if (!isCancel(err)) console.error(err);
       });
     }
 
-    document.getElementById('prev').addEventListener('click', () => {
-      if (pageNum > 1) { pageNum--; renderPage(pageNum); resetTransform(); }
-    });
-
-    document.getElementById('next').addEventListener('click', () => {
-      if (pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); resetTransform(); }
-    });
-
-    // ✅ 雙擊放大／縮小 + 拖動限制
-    let zoom = 1, offsetX = 0, offsetY = 0;
-    const applyInnerTransform = () => inner.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
-    const resetTransform = () => { zoom = 1; offsetX = 0; offsetY = 0; inner.style.transform = ''; };
-
-    let isDragging = false, startX = 0, startY = 0;
-    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
-
-    wrapper.addEventListener('touchstart', e => {
-      if (zoom > 1 && e.touches.length === 1) {
-        isDragging = true;
-        startX = e.touches[0].clientX - offsetX;
-        startY = e.touches[0].clientY - offsetY;
+    function unzoom() {
+      resetTransform();
+      cancelZoomJob();
+      if (zoomCanvas) {
+        zoomCanvas = null;
+        renderPage(pageNum);   // 換回一般版本（快取中，會立即顯示；放大圖在 show() 時釋放）
       }
+    }
+
+    // 兩指 / 拖曳結束時：倍率很接近 1 就還原，否則補畫高解析度版本
+    function finishZoom() {
+      if (zoom < 1.05) unzoom(); else renderZoomed();
+    }
+
+    // ---------- 按鈕、鍵盤、視窗 ----------
+    document.getElementById('prev').addEventListener('click', prevPage);
+    document.getElementById('next').addEventListener('click', nextPage);
+
+    // 電腦版：鍵盤左右鍵（按著 Alt / Ctrl / Cmd 時是瀏覽器快捷鍵，不處理）
+    document.addEventListener('keydown', e => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === 'ArrowRight') nextPage();
+      else if (e.key === 'ArrowLeft') prevPage();
     });
 
-    wrapper.addEventListener('touchmove', e => {
-      if (isDragging && e.touches.length === 1) {
+    function redrawAll() {
+      resetTransform();
+      cancelZoomJob();
+      zoomCanvas = null;
+      clearCache();
+      renderPage(pageNum);
+    }
+
+    // 旋轉螢幕 / 改變視窗大小時重新繪製
+    let resizeTimer;
+    let lastWidth = wrapper.clientWidth;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        // 手機捲動時網址列伸縮也會觸發 resize，只在寬度改變時重畫
+        if (!pdfDoc || wrapper.clientWidth === lastWidth) return;
+        lastWidth = wrapper.clientWidth;
+        redrawAll();
+      }, 200);
+    });
+
+    // 切到背景太久，手機可能清掉畫布內容；回來時重畫
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      if (pdfDoc && hiddenAt && Date.now() - hiddenAt > 60000) redrawAll();
+    });
+
+    // ---------- 觸控：兩指縮放、雙擊縮放、放大時拖曳、未放大時滑動換頁 ----------
+    let zoom = 1, offsetX = 0, offsetY = 0;
+
+    function applyTransform(animate) {
+      inner.style.transition = animate ? '' : 'none';   // 手指操作中不要動畫，才會跟手
+      inner.style.transform = zoom === 1 && !offsetX && !offsetY
+        ? '' : `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
+      // 未放大時讓手指可以上下捲動網頁；放大時由程式處理拖曳
+      wrapper.style.touchAction = inner.style.touchAction = zoom > 1 ? 'none' : 'pan-y';
+    }
+    function resetTransform() { zoom = 1; offsetX = 0; offsetY = 0; applyTransform(true); }
+
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+    function clampOffset() {
+      const wW = wrapper.clientWidth, wH = wrapper.clientHeight;
+      const maxX = (wW * zoom - wW) / 2, maxY = (wH * zoom - wH) / 2;
+      offsetX = clamp(offsetX, -maxX, maxX);
+      offsetY = clamp(offsetY, -maxY, maxY);
+    }
+
+    // 以畫面中心為原點的座標
+    function centerPoint(x, y) {
+      const r = wrapper.getBoundingClientRect();
+      return { x: x - (r.left + r.width / 2), y: y - (r.top + r.height / 2) };
+    }
+
+    const SWIPE_THRESHOLD = 50;
+    const DOUBLE_TAP_MS = 300;
+    // gesture：'tap' 點擊 / 'pan' 單指移動 / 'pinch' 兩指縮放 / 'drag' 兩指放開一指後繼續拖曳
+    let gesture = null;
+    let startX = 0, startY = 0, panX = 0, panY = 0;
+    let pinchDist = 0, pinchZoom = 1, pinchOffX = 0, pinchOffY = 0, pinchMid = null;
+    let lastTap = 0;
+
+    const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
+    function startPan(t) {
+      startX = t.clientX; startY = t.clientY;
+      panX = offsetX; panY = offsetY;
+    }
+
+    // 只看放在畫面上的手指（targetTouches），按在其他按鈕上的手指不算
+    wrapper.addEventListener('touchstart', e => {
+      const touches = e.targetTouches;
+      if (touches.length >= 2) {
+        // 兩指開始：記錄起始距離、倍率、中心點
         e.preventDefault();
-        offsetX = e.touches[0].clientX - startX;
-        offsetY = e.touches[0].clientY - startY;
-        const bounds = getBounds();
-        offsetX = clamp(offsetX, -bounds.maxOffsetX, bounds.maxOffsetX);
-        offsetY = clamp(offsetY, -bounds.maxOffsetY, bounds.maxOffsetY);
-        applyInnerTransform();
+        gesture = 'pinch';
+        lastTap = 0;
+        const [a, b] = touches;
+        pinchDist = dist(a, b) || 1;
+        pinchZoom = zoom; pinchOffX = offsetX; pinchOffY = offsetY;
+        pinchMid = centerPoint((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
+      } else if (touches.length === 1) {
+        if (e.touches.length === 1 || gesture !== 'pinch') {
+          gesture = 'tap';
+          startPan(touches[0]);
+        }
       }
     }, { passive: false });
 
-    wrapper.addEventListener('touchend', () => isDragging = false);
-
-    function getBounds() {
-      const wW = wrapper.clientWidth;
-      const wH = wrapper.clientHeight;
-      const scaledW = wW * zoom;
-      const scaledH = wH * zoom;
-      return {
-        maxOffsetX: (scaledW - wW) / 2,
-        maxOffsetY: (scaledH - wH) / 2
-      };
-    }
-
-    let lastTap = 0;
-    wrapper.addEventListener('touchend', e => {
-      const now = Date.now();
-      if (e.touches.length === 0 && now - lastTap < 300) {
-        if (zoom === 1) { zoom = 2; applyInnerTransform(); }
-        else { resetTransform(); }
+    wrapper.addEventListener('touchmove', e => {
+      const touches = e.targetTouches;
+      if (gesture === 'pinch' && touches.length >= 2) {
+        e.preventDefault();
+        const [a, b] = touches;
+        const newZoom = clamp(pinchZoom * dist(a, b) / pinchDist, 1, MAX_ZOOM);
+        // 讓兩指中心點下的內容保持在原位
+        const mid = centerPoint((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
+        const qx = (pinchMid.x - pinchOffX) / pinchZoom;
+        const qy = (pinchMid.y - pinchOffY) / pinchZoom;
+        zoom = newZoom;
+        offsetX = mid.x - qx * zoom;
+        offsetY = mid.y - qy * zoom;
+        clampOffset();
+        applyTransform(false);
+      } else if (touches.length === 1 && gesture && gesture !== 'pinch') {
+        const t = touches[0];
+        const dx = t.clientX - startX, dy = t.clientY - startY;
+        if (gesture === 'tap' && Math.hypot(dx, dy) > 10) gesture = 'pan';
+        if ((gesture === 'pan' || gesture === 'drag') && zoom > 1) {
+          // 放大時單指拖曳
+          e.preventDefault();
+          offsetX = panX + dx; offsetY = panY + dy;
+          clampOffset();
+          applyTransform(false);
+        }
       }
-      lastTap = now;
+    }, { passive: false });
+
+    wrapper.addEventListener('touchend', e => {
+      const touches = e.targetTouches;
+      if (gesture === 'pinch') {
+        if (touches.length >= 2) return;
+        finishZoom();
+        lastTap = 0;
+        if (touches.length === 1) {
+          // 兩指放開一指：剩下的手指可以繼續拖曳
+          gesture = 'drag';
+          startPan(touches[0]);
+        } else {
+          gesture = null;
+        }
+        return;
+      }
+      if (touches.length !== 0 || e.changedTouches.length !== 1) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX, dy = t.clientY - startY;
+      const g = gesture;
+      gesture = null;
+
+      if (g === 'drag') { lastTap = 0; return; }
+      if (g === 'pan') {
+        lastTap = 0;
+        // 未放大時水平滑動換頁：手指往右滑 → 下一頁；手指往左滑 → 上一頁
+        if (zoom === 1 && Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+          if (dx > 0) nextPage(); else prevPage();
+        }
+        return;
+      }
+      if (g !== 'tap') return;
+
+      // 雙擊：未放大 → 以點擊處為中心放大；已放大 → 還原
+      const now = Date.now();
+      if (now - lastTap < DOUBLE_TAP_MS) {
+        lastTap = 0;
+        if (zoom === 1) {
+          const p = centerPoint(t.clientX, t.clientY);
+          zoom = DOUBLE_TAP_ZOOM;
+          offsetX = -p.x * (zoom - 1);
+          offsetY = -p.y * (zoom - 1);
+          clampOffset();
+          applyTransform(true);
+          renderZoomed();
+        } else {
+          unzoom();
+        }
+      } else {
+        lastTap = now;
+      }
     });
 
-    // ✅ 左滑 → 下一頁；右滑 → 上一頁（方向修正）
-    let touchStartX = 0, touchEndX = 0;
-    const threshold = 50;
-    wrapper.addEventListener('touchstart', e => {
-      if (e.touches.length === 1 && zoom === 1)
-        touchStartX = e.touches[0].clientX;
-    }, { passive: true });
+    // 手勢被系統打斷（通知、控制中心等）：收尾，不要停在一半
+    wrapper.addEventListener('touchcancel', () => {
+      if (gesture === 'pinch' || gesture === 'drag') finishZoom();
+      gesture = null;
+      lastTap = 0;
+    });
 
-    wrapper.addEventListener('touchend', e => {
-      if (zoom !== 1) return;
-      if (e.changedTouches.length === 1) {
-        touchEndX = e.changedTouches[0].clientX;
-        const diffX = touchEndX - touchStartX;
-		if (Math.abs(diffX) > threshold) {
-		  if (diffX > 0 && pageNum < pdfDoc.numPages) pageNum++;      // 👉 左→右：下一頁
-		  else if (diffX < 0 && pageNum > 1) pageNum--;               // 👈 右→左：上一頁
-		  renderPage(pageNum);
-		  resetTransform();
-		}
-        
-      }
-    }, { passive: true });
+    init().catch(err => {
+      console.error(err);
+      showStatus('載入失敗，請重新整理');
+    });
   </script>
 </body>
 </html>
